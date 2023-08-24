@@ -1,0 +1,23 @@
+{
+"title": "Check VPA",
+ "sql": "\n\n\n-- Check the current VPA parameter setting\nshow parameter spatial_vector_acceleration;\n\n--\n-- Options to set the parameter to TRUE if FALSE:\n--\n\n-- Option 1 : As a user with SYSDBA privileges\nalter system set spatial_vector_acceleration=true scope=both;\n\n-- Option 2: As a user granted with ALTER SESSION privilege\nalter session set spatial_vector_acceleration = true;\n\n-- Verify the result\nshow parameter spatial_vector_acceleration;",
+ "fontSize": 18,
+ "fontName": "Consolas",
+ "loopGIF": false,
+ "highlightedWords": "spatial_vector_acceleration",
+ "noMargin": false,
+ "transparentBackground": false,
+ "displayLineNumbers": false,
+ "displayTabs": false,
+ "speedMultiplier": 2.000000,
+ "selection": {"start": 212, "end": 239, "mode": "ROUND_SQUARE", "hint": "", "top": true},
+ "version": "Oracle Database since 19c (April 2019)", "codePanelTransparency": 255, "whiteOverlay": "None", "overlayTransparency": 255,
+ "overlayGlow": 0,
+ "overlayBloom": 0,
+ "tableBorders": true,
+ "gradient": {"fromX": 0.000000, "fromY": 100.000000, "toX": 100.000000, "toY": 100.000000,  "colors": [{"rgb": true, "red": 0.988235, "green": 0.811765, "blue": 0.192157, "opacity": 1.000000, "percent": 10}, {"rgb": true, "red": 0.960784, "green": 0.333333, "blue": 0.333333, "opacity": 1.000000, "percent": 100}]},
+ "explanations": [],
+ "explanationsBorderColor": {"rgb": true, "red": 0.407843, "green": 0.882353, "blue": 0.815686, "opacity": 1.000000, "percent": 100},
+ "targetURL": ""
+
+}
