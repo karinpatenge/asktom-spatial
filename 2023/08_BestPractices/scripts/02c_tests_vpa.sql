@@ -4,11 +4,13 @@ set echo on
 set timing on
 
 col testcaseid format a10
-col vpa_enable format a10
+col vpa_enabled format a10
 
 -- Drop results table
 drop table vpa_test_results purge
 /
+
+pause
 
 -- Re-create results table
 create table vpa_test_results (
@@ -19,9 +21,11 @@ create table vpa_test_results (
   vpa_enabled number default 0,
   starttime timestamp(6),
   endtime timestamp(6),
-  runtime_in_millisec number
+  runtime_in_sec number
 ) nologging
 /
+
+pause
 
 -- 
 -- Data origin: https://gadm.org/download_country.html
@@ -40,7 +44,7 @@ alter system flush shared_pool;
 alter session set spatial_vector_acceleration = FALSE;
 
 -- Run with VPA disabled
-@@02c_vpa_tests_01a.sql
+@@02c_tests_vpa_disabled.sql
 
 -- Flush shared pool
 alter system flush shared_pool;
@@ -48,14 +52,19 @@ alter system flush shared_pool;
 alter session set spatial_vector_acceleration = TRUE;
 
 -- Run with VPA enabled
-@@02c_vpa_tests_01b.sql
+@@02c_tests_vpa_enabled.sql
+
+set timing off
 
 -- Report test results
-select testcaseid, vpa_enabled, testcasedesc, endtime-starttime as runtime
+update vpa_test_results 
+set runtime_in_sec = round((cast(sys_extract_utc(endtime) as date) - TO_DATE('1970-01-01 00:00:00','YYYY-MM-DD HH24:MI:SS')) * 86400 - (cast(sys_extract_utc(starttime) as date) - TO_DATE('1970-01-01 00:00:00','YYYY-MM-DD HH24:MI:SS')) * 86400);
+commit;
+
+select testcaseid, vpa_enabled, testcasedesc, runtime_in_sec
 from vpa_test_results
 order by 1,2;
 
-set timing off
 set echo off
 set serveroutput off
 
