@@ -1,6 +1,8 @@
+!cls
 set define off
 set sqlblanklines on
 set echo on
+set timing on
 
 /*
  * Source:
@@ -23,7 +25,7 @@ create table geometry_errors (
 );
 
 /*
- * Depending on 
+ * Depending on
  *   * the number of spatially-enabled tables,
  *   * the number of geometries,
  *   * and the number of vertices in a geometry,
@@ -139,7 +141,6 @@ begin
       end if;
 
     end loop;
-
   end loop;
 
   -- Final commit
@@ -168,14 +169,10 @@ select table_name, obj_rowid, error_message, error_context
 from geometry_errors
 order by table_name, obj_rowid;
 
-pause
-
 -- Check one invalid geometry using a smaller tolerance
-select sdo_geom.validate_geometry_with_context (geom, 0.01) 
-from GADM_IND_LEVEL0 
+select sdo_geom.validate_geometry_with_context (geom, 0.01)
+from GADM_IND_LEVEL0
 where rowid = 'AAAT83AAMAADORtAAB';
-
-pause
 
 --------------------------------------------
 -- A very fast alternative, validating table
@@ -188,9 +185,21 @@ create table geometry_errors parallel 16 nologging as
 select sdo_rowid, status
 from (select rowid sdo_rowid,
 		sdo_geom.validate_geometry_with_context(geom, 0.05) status
-	from gadm_fra_level5)
+	from gadm_ind_level3)
 where status <> 'TRUE';
 
 select count(*) from geometry_errors;
+select * from geometry_errors;
+
+
+-- Adjust tolerance and re-validate
+select sdo_geom.validate_geometry_with_context (geom, 0.01)
+from gadm_ind_level3
+where rowid = 'AAAT9fAAMAADQ3GAAB';
+
+
+-- Alternative:
+-- Create table first and then
+-- INSERT /*+ APPEND PARALLEL(16) */ INTO ...
 
 

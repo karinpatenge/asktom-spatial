@@ -1,5 +1,7 @@
+!cls
 set define off
 set sqlblanklines on
+set pause on
 set echo on
 
 drop table crs_errors purge;
@@ -32,7 +34,6 @@ begin
     -- Validate the CRS
     v_status := sdo_cs.validate_wkt (v_srid);
 
-
     -- Log the error (if any)
     if v_status <> 'TRUE' then
 
@@ -46,7 +47,7 @@ begin
         v_error_message := null;
         v_error_context := null;
       end if;
-    
+
       -- Write the error
       insert into crs_errors (
         srid,
@@ -60,7 +61,7 @@ begin
         v_error_message,
         v_error_context
       );
-      end if;
+    end if;
 
   end loop;
   commit;

@@ -10,8 +10,6 @@ col vpa_enabled format a10
 drop table vpa_test_results purge
 /
 
-pause
-
 -- Re-create results table
 create table vpa_test_results (
   id number generated always as identity,
@@ -25,9 +23,7 @@ create table vpa_test_results (
 ) nologging
 /
 
-pause
-
--- 
+--
 -- Data origin: https://gadm.org/download_country.html
 -- Data set for Testcase 1: Finland / Admin boundaries level 2
 --
@@ -36,10 +32,9 @@ from gadm_fin_level2 g
 order by 1
 fetch first 10 rows only;
 
-pause
-
 -- Flush shared pool
 alter system flush shared_pool;
+
 -- Disable VPA
 alter session set spatial_vector_acceleration = FALSE;
 
@@ -48,6 +43,7 @@ alter session set spatial_vector_acceleration = FALSE;
 
 -- Flush shared pool
 alter system flush shared_pool;
+
 -- Enable VPA
 alter session set spatial_vector_acceleration = TRUE;
 
@@ -57,7 +53,7 @@ alter session set spatial_vector_acceleration = TRUE;
 set timing off
 
 -- Report test results
-update vpa_test_results 
+update vpa_test_results
 set runtime_in_sec = round((cast(sys_extract_utc(endtime) as date) - TO_DATE('1970-01-01 00:00:00','YYYY-MM-DD HH24:MI:SS')) * 86400 - (cast(sys_extract_utc(starttime) as date) - TO_DATE('1970-01-01 00:00:00','YYYY-MM-DD HH24:MI:SS')) * 86400);
 commit;
 

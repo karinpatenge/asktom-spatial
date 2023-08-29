@@ -2,6 +2,11 @@ set define off
 set sqlblanklines on
 set echo on
 
+--------------
+-- Turn VPA on
+--------------
+alter session set spatial_vector_acceleration = true;
+
 -- -------------------------------------
 -- Add queries to be traced and analyzed
 -- -------------------------------------
@@ -70,3 +75,6 @@ commit;
 -----------------
 -- End test run 3
 -----------------
+
+set echo off
+set timing off
