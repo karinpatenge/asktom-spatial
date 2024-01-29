@@ -1,9 +1,9 @@
-------------------------------------------
--- Create points located in a bounding box
+-------------------------------------------
+-- Create points located somewhere on earth
 --   1. SDO_GEOMETRY
 --   2. LAT/LON values
 -- Coordinate system: WGS84 (SRID = 4326)
-------------------------------------------
+-------------------------------------------
 
 -- Log into your DB instance as user ASKTOM
 
@@ -47,6 +47,8 @@ create or replace procedure create_random_points (
     l_curr_lon number;
     l_curr_lat number;
     l_geom sdo_geometry;
+    l_bounding_box sdo_geometry;
+
 begin
 
     l_batch_size := p_batch_size;
@@ -89,7 +91,7 @@ select count(*) from points_geom;
 
 -- 2. Fill with lon/lat points
 create or replace procedure create_random_lonlat (
-    p_batch_size in number default 1000
+    p_batch_size in number default 10
 ) is
     type t_points_lonlat is table of points_lonlat%ROWTYPE;
     l_tab t_points_lonlat := t_points_lonlat();
@@ -125,7 +127,7 @@ begin
 end;
 /
 
--- Insert 15 mio random lon/lat values
+-- Insert 150k random lon/lat values
 declare
     l_batch_num number := 15;
 begin
@@ -134,7 +136,6 @@ begin
     end loop;
 end;
 /
--- ~ 115 sec
 
 select * from points_lonlat
 fetch first 10 rows only;
@@ -168,7 +169,7 @@ values (
 insert into user_sdo_geom_metadata
 values (
     'POINTS_LONLAT',
-    'asktom.GET_GEOMETRY(longitude,latitude)',
+    'ASKTOM.GET_GEOMETRY(longitude,latitude)',
     sdo_dim_array(
         sdo_dim_element('Lon',-180.0,180,0.05),
         sdo_dim_element('Lat',-90.0,900,0.05)
