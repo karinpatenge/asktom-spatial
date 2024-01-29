@@ -7,5 +7,10 @@
 
 -- Create user
 create user asktom identified by Welcome_123#;
-grant create session, resources, connect to asktom;
 
+-- Grant default permissions
+grant create session, resource, connect to asktom;
+
+-- Assign quota
+-- Note: For Autonomous Databases the default tablespace is DATA
+alter user asktom quota unlimited on data;
