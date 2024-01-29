@@ -5,9 +5,6 @@
 -- Log into your DB instance as user with SYS/SYSDBA privileges
 -- or as user ADMIN (in case of Autonomous DB).
 
--- Drop existing user if necessary
-drop user asktom cascade;
-
 -- Create user
 create user asktom identified by Welcome_123#;
 
