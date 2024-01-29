@@ -2,7 +2,7 @@
 -- Create points located in a bounding box
 --   1. SDO_GEOMETRY
 --   2. LAT/LON values
--- Coordinate syste: WGS84 (SRID = 4326)
+-- Coordinate system: WGS84 (SRID = 4326)
 ------------------------------------------
 
 -- Log into your DB instance as user ASKTOM

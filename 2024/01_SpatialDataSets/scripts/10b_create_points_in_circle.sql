@@ -1,16 +1,12 @@
------------------
--- Create DB user
------------------
+---------------------------------------------------------
+-- Create points located in a circle around a given point
+--   1. SDO_GEOMETRY
+--   2. LAT/LON values
+-- Coordinate system: WGS84 (SRID = 4326)
+---------------------------------------------------------
 
--- Log into your DB instance as user with SYS/SYSDBA privileges
--- or as user ADMIN (in case of Autonomous DB).
+-- Log into your DB instance as user ASKTOM
 
--- Create user
-create user asktom identified by Welcome_123#;
+set timing on
+set serveroutput on
 
--- Grant default permissions
-grant create session, resource, connect to asktom;
-
--- Assign quota
--- Note: For Autonomous Databases the default tablespace is DATA
-alter user asktom quota unlimited on data;
