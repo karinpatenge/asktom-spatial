@@ -36,10 +36,10 @@ clustering by interleaved order (longitude, latitude) yes on load;
 -- 1. Fill with SDO_GEOMETRY points
 create or replace procedure create_random_points_bb (
     p_batch_size in number default 10,
-    p_lower_left_x in number default 0.0,
-    p_lower_left_y in number default 0.0,
-    p_upper_right_x in number default 0.0,
-    p_upper_right_y in number default 0.0
+    p_lower_left_x in number default 5.0,
+    p_lower_left_y in number default 45.0,
+    p_upper_right_x in number default 15.0,
+    p_upper_right_y in number default 55.0
 ) is
     type t_points_geom_bb is table of points_geom_bb%ROWTYPE;
     l_tab t_points_geom_bb := t_points_geom_bb();
@@ -60,10 +60,10 @@ begin
         p_lower_left_x > 180 or
         p_upper_right_x < -180.0 or
         p_upper_right_x > 180.0 or
-        p_lower_left_x < -180.0 or
-        p_lower_left_x > 180 or
-        p_upper_right_x < -180.0 or
-        p_upper_right_x > 180.0
+        p_lower_left_y < -90.0 or
+        p_lower_left_y > 90 or
+        p_upper_right_y < -90.0 or
+        p_upper_right_y > 90.0
     then
         dbms_output.put_line('Invalid value(s) for the bounding box.');
         dbms_output.put_line('X must be >= -180 and <= 180.');
@@ -77,7 +77,7 @@ begin
     for j in 1 .. l_batch_size loop
         l_curr_lon := round(dbms_random.value(p_lower_left_x,p_upper_right_x),10);
         l_curr_lat := round(dbms_random.value(p_lower_left_y,p_upper_right_y),10);
-        l_geom := mdsys.sdo_geometry (2001, 4326, sdo_point_type (l_curr_lat, l_curr_lon, null), null, null);
+        l_geom := mdsys.sdo_geometry (2001, 4326, sdo_point_type (l_curr_lon, l_curr_lat, null), null, null);
         l_tab.extend;
         l_tab(l_tab.last).id := l_last_id;
         l_tab(l_tab.last).geom := l_geom;
@@ -97,7 +97,7 @@ declare
     l_batch_num number := 15;
 begin
     for i in 1 .. l_batch_num loop
-        create_random_points_bb(10000);
+        create_random_points_bb(10000, 4.0, 40.0, 18.0, 53.0 );
     end loop;
 end;
 /
@@ -110,10 +110,10 @@ select count(*) from points_geom_bb;
 -- 2. Fill with lon/lat points
 create or replace procedure create_random_lonlat_bb (
     p_batch_size in number default 1000,
-    p_lower_left_x in number default 0.0,
-    p_lower_left_y in number default 0.0,
-    p_upper_right_x in number default 0.0,
-    p_upper_right_y in number default 0.0
+    p_lower_left_x in number default 5.0,
+    p_lower_left_y in number default 45.0,
+    p_upper_right_x in number default 15.0,
+    p_upper_right_y in number default 55.0
 ) is
     type t_points_lonlat_bb is table of points_lonlat_bb%ROWTYPE;
     l_tab t_points_lonlat_bb := t_points_lonlat_bb();
@@ -133,8 +133,8 @@ begin
 
     -- Populate sample as collection
     for j in 1 .. l_batch_size loop
-        l_curr_lon := round(dbms_random.value(-180,180),10);
-        l_curr_lat := round(dbms_random.value(-90,90),10);
+        l_curr_lon := round(dbms_random.value(p_lower_left_x,p_upper_right_x),10);
+        l_curr_lat := round(dbms_random.value(p_lower_left_y,p_upper_right_y),10);
         l_tab.extend;
         l_tab(l_tab.last).id := l_last_id;
         l_tab(l_tab.last).longitude := l_curr_lon;
@@ -154,7 +154,7 @@ declare
     l_batch_num number := 15;
 begin
     for i in 1 .. l_batch_num loop
-        create_random_lonlat_bb(10000);
+        create_random_lonlat_bb(10000, 4.0, 40, 18.0, 53.0 );
     end loop;
 end;
 /
