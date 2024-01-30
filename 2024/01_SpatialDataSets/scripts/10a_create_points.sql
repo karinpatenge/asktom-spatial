@@ -130,6 +130,9 @@ begin
 end;
 /
 
+-- Truncate table
+truncate table points_lonlat drop storage;
+
 -- Insert 150k random lon/lat values
 declare
     l_batch_num number := 15;
