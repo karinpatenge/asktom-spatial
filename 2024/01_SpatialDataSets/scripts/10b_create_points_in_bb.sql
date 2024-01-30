@@ -92,12 +92,15 @@ begin
 end;
 /
 
+-- Truncate table
+truncate table points_geom_bb drop storage;
+
 -- Insert 150K random point geometries
 declare
     l_batch_num number := 15;
 begin
     for i in 1 .. l_batch_num loop
-        create_random_points_bb(10000, 4.0, 40.0, 18.0, 53.0 );
+        create_random_points_bb(10000, 6.0, 44.0, 13.0, 54.0 );
     end loop;
 end;
 /
@@ -149,12 +152,15 @@ begin
 end;
 /
 
+-- Truncate table
+truncate table points_lonlat_bb drop storage;
+
 -- Insert 150K random lon/lat values
 declare
     l_batch_num number := 15;
 begin
     for i in 1 .. l_batch_num loop
-        create_random_lonlat_bb(10000, 4.0, 40, 18.0, 53.0 );
+        create_random_lonlat_bb(10000, 2.0, 45, 18.0, 49.0 );
     end loop;
 end;
 /
