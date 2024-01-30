@@ -60,7 +60,7 @@ begin
     for j in 1 .. l_batch_size loop
         l_curr_lon := round(dbms_random.value(-180,180),10);
         l_curr_lat := round(dbms_random.value(-90,90),10);
-        l_geom := mdsys.sdo_geometry (2001, 4326, sdo_point_type (l_curr_lat, l_curr_lon, null), null, null);
+        l_geom := mdsys.sdo_geometry (2001, 4326, sdo_point_type (l_curr_lon, l_curr_lat, null), null, null);
         l_tab.extend;
         l_tab(l_tab.last).id := l_last_id;
         l_tab(l_tab.last).geom := l_geom;
@@ -73,6 +73,9 @@ begin
     commit;
 end;
 /
+
+-- Truncate table
+truncate table points_geom drop storage;
 
 -- Insert 150K random point geometries
 declare
