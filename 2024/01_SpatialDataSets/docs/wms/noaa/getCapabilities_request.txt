@@ -1,0 +1,1 @@
+https://nowcoast.noaa.gov/geoserver/observations/weather_radar/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetCapabilities
