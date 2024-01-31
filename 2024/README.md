@@ -1,7 +1,13 @@
 # AskTOM Spatial Series
 
-This document points you to scripts, data, and other assets related to AskTOM Spatial Series sessions in 2024.  
-Sessions are scheduled to take place online at the last Tuesday of each each month. Start time is 4 p.m. Berlin time. Each session lasts one hour.  
+This document points you to scripts, data, and other assets related to AskTOM Spatial Series sessions in 2024.
+
+Sessions are scheduled to:
+
+* take place online at the last Tuesday of each month.
+* Start time is 4 p.m. Berlin time.
+* Each session lasts one hour.
+
 Recordings of the sessions can be found [here](https://asktom.oracle.com/ords/r/tech/catalog/videos). Set the following filters to narrow the results:
 
 * Year = 2024
