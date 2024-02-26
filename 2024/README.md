@@ -18,7 +18,7 @@ You can register for sessions using the [AskTOM platform](https://asktom.oracle.
 ## List of sessions
 
 * [January](./01_SpatialDataSets/)
-* February
+* [February](./02_OpenSourceGIS_and_Spatial)
 * March
 * April
 * May
