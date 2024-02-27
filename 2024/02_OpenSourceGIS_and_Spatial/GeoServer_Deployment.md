@@ -190,8 +190,8 @@ Alternate descriptions:
     * Restart Tomcat
 
     ```sh
-    sh $CATALINA_HOME/shutdown.sh
-    sh $CATALINA_HOME/startup.sh
+    sh $CATALINA_HOME/bin/shutdown.sh
+    sh $CATALINA_HOME/bin/startup.sh
     ```
 
 13. Add an Oracle Datastore
@@ -205,7 +205,7 @@ Alternate descriptions:
     * On the GeoServer Console, go to:
 
         * Security > Users, Groups, Roles
-        * Choose tab "USers/Groups"
+        * Choose tab "Users/Groups"
         * Edit user "admin"
         * Change the password and save your changes
 
