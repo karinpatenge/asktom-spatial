@@ -1,4 +1,4 @@
-# Setup the database
+# Configure the database for use with GeoRaster
 
 ## Steps
 
@@ -10,7 +10,7 @@ Proceed now with the following steps:
 
    ```sh
    cd ~
-   podman exec -it 23aifree sqlplus sys/${ORACLE_PWD}@localhost:1521/free as sysdba
+   podman exec -it 23aifree sqlplus sys@localhost:1521/free as sysdba
    ```
 
    ```sql
@@ -33,7 +33,7 @@ Proceed now with the following steps:
 4. Add a new user
 
    ```sql
-   create user asktom_user identified by "${ORACLE_PWD}" default tablespace asktom_tbs temporary tablespace temp quota unlimited on asktom_tbs;
+   create user asktom_user identified by "Welcome_1234#" default tablespace asktom_tbs temporary tablespace temp quota unlimited on asktom_tbs;
    ```
 
 5. Grant privileges to the user
@@ -50,10 +50,10 @@ Proceed now with the following steps:
    quit
    ```
 
-7. Connect to the database with the new user
+7. Connect to the database with the new user.
 
    ```sh
-   sqlplus asktom_user/${ORACLE_PWD}@localhost:1521/freepdb1
+   sqlplus asktom_user@localhost:1521/freepdb1
    ```
 
 8. Enable GeoRaster at schema level
