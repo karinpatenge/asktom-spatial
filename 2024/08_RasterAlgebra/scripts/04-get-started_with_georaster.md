@@ -416,7 +416,7 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
 
 #### Convert RGB to gray-scale images
 
-   We start with converting the `RGB` images to gray-scale images.
+   We start with converting the rasters, which are `RGB` images, to gray-scale images.
 
    ```sql
    /*
@@ -477,7 +477,7 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
 
 #### Classify rasters
 
-   Now, we classify the RGB images in categories.
+   Now, we classify the rasters in categories.
 
    ```sql
    /*
