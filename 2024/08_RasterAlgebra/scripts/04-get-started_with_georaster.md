@@ -559,7 +559,7 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
 
    The result of this operation you can see in the following image:
 
-   ![spatial_studio_show_raster_single_image_classified](../images/spatial_studio_show_raster_single_image_classifiede.png)
+   ![spatial_studio_show_raster_single_image_classified](../images/spatial_studio_show_raster_single_image_classified.png)
 
 #### Find cell values
 
