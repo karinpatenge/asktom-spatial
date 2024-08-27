@@ -478,6 +478,14 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
    /
    ```
 
+   The result of the operation you can see in the following image:
+
+   ![spatial_studio_show_raster_single_image_grayscale_naive](../images/spatial_studio_show_raster_single_image_grayscale_naive.png)
+
+   If you choose as `operation` the better approximation using the formula  `'0.3*{0}+0.6*{1}+0.1*{2}'` then you get a slightly different image. The differences in the gray scales you can see better when zooming into the image.
+
+   ![spatial_studio_show_raster_single_image_grayscale_advanced](../images/spatial_studio_show_raster_single_image_grayscale_advanced.png)
+
 #### Classify rasters
 
    Now, we classify the rasters in categories.
