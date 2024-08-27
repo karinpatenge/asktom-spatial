@@ -15,3 +15,5 @@ The documents in this folder describe how to work with raster data in the Oracle
 1. [Get Started with Oracle GeoRaster](./scripts/04-get-started_with_georaster.md)
 
 ### Analyzing raster data in the Oracle Database
+
+1. [Use Raster Algebra](./scripts/05-using_raster_algebra.md)
