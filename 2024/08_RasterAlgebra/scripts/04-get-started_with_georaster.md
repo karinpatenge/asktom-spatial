@@ -432,7 +432,7 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
       gr2   sdo_georaster;
    begin
       -- Clean up
-      delete from raster_images where georid > 1000 and georid < 2000>;
+      delete from raster_images where georid > 1000 and georid < 2000;
 
       -- Process all rasters in sequence
       for r in (
