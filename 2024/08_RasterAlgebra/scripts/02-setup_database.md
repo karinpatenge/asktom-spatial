@@ -10,7 +10,7 @@ Proceed now with the following steps:
 
    ```sh
    cd ~
-   podman exec -it 23aifree sqlplus sys@localhost:1521/free as sysdba
+   podman exec -it 23aifree sqlplus sys/${ORACLE_PWD}@localhost:1521/free as sysdba
    ```
 
    ```sql
@@ -39,7 +39,9 @@ Proceed now with the following steps:
 5. Grant privileges to the user
 
    ```sql
+   -- Minimum required permissions
    grant resource, connect to asktom_user;
+
    -- CREATE TRIGGER is required for enabling GeoRaster at schema level
    grant create trigger to asktom_user;
    ```
@@ -53,7 +55,7 @@ Proceed now with the following steps:
 7. Connect to the database with the new user.
 
    ```sh
-   sqlplus asktom_user@localhost:1521/freepdb1
+   sqlplus asktom_user/${ORACLE_PWD}@localhost:1521/freepdb1
    ```
 
 8. Enable GeoRaster at schema level
@@ -63,3 +65,5 @@ Proceed now with the following steps:
    select sdo_geor_admin.isGeoRasterEnabled from dual;
    quit
    ```
+
+Proceed now with [enabling client access to your database](./03-open_ports.md).

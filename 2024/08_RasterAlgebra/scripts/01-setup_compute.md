@@ -8,15 +8,13 @@
 
    ![create_a_vm_instance](../images/create_a_compute_vm.png)
 
-   Once the compute VM is provisioned, copy its the public IP address.
+   Once the compute VM is provisioned, make a note of its public IP address.
 
 ### Install required software components
 
    Establish an SSH connection to your newly created compute VM using a client of your choice (PuTTY, MobaXterm, ...).
 
    Login as user `opc` (which has sudo permissions).
-
-   Note: Steps 3 and 4 are only required for Oracle Database version 23.4, which does not include `GDAL` in the `$ORACLE_HOME/md`.
 
 1. Install Podman
 
@@ -98,6 +96,8 @@
 
 3. Install Oracle Database Instant Client
 
+   Note: Steps 3 and 4 are only required for Oracle Database version 23.4, which does not include `GDAL` in the `$ORACLE_HOME/md`.
+
    Now, we install the Oracle Instant Clients to be used with the database in the container. This is required, since the current 23ai Free Developer image (23.4) does not contain the GDAL distribution in `$ORACLE_HOME/md`.
 
    ```sh
@@ -166,6 +166,10 @@
    - Run a few check to verify that GDAL is properly installed and configured.
 
       ```sh
+      cd ${GDAL_HOME}
+      pwd
+      ls -l
+
       # List the shared objects (libraries) required by GDAL
       ldd lib/libgdal.so
 
@@ -179,4 +183,4 @@ You have now the compute instance with
 
 ready to use.
 
-Proceed now with [configuring your 23ai database instance](./02-setup_database.md).
+Proceed now with [configuring your Oracle Database 23ai instance](./02-setup_database.md).
