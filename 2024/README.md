@@ -24,7 +24,7 @@ You can register for sessions using the [AskTOM platform](https://asktom.oracle.
 * May
 * June
 * July
-* August
+* [August](./08_RasterAlgebra)
 * September
 * October
 * November
