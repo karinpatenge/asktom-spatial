@@ -37,4 +37,4 @@ To connect to the Oracle Database running in a container on your OCI compute VM,
 
          ![.\images\db_connection_](../images/db_connection_sql_developer.png)
 
-Proceed now with [Getting started with ORacle GeoRaster](./04-get-started_with_georaster.md).
+Proceed now with [Get started with Oracle GeoRaster](./04-get-started_with_georaster.md).

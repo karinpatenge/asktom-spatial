@@ -7,8 +7,13 @@
    This step is only required if the container is not running.
 
    ```sh
+   # Check if the container is running
    podman container ls
+
+   # If not, start it
    podman start 23aifree
+
+   # and check the result
    podman container ls
    ```
 
@@ -17,7 +22,7 @@
    You can use Podman to connect to the database inside the container.
 
    ```sh
-   podman exec -it 23aifree sqlplus asktom_user@localhost:1521/freepdb1
+   podman exec -it 23aifree sqlplus asktom_user/${ORACLE_PWD}@localhost:1521/freepdb1
    ```
 
    Or, use the Oracle Database client of your choice, such as `SQL Developer` or `Visual Studio` with the `SQL Developer extension`.
@@ -28,18 +33,18 @@
 
    ```sql
    -- Clean up
-   drop table raster_images_rdt_01 purge;
-   drop table raster_images purge;
+   drop table if exists raster_images_rdt_01 purge;
+   drop table if exists raster_images purge;
 
    -- Create table to store raster image data
-   create table raster_images (
+   create table if not exists raster_images (
       georid              number primary key,
       source_file         varchar2(80),
       description         varchar2(256),
       georaster           sdo_georaster
    );
 
-   create table raster_images_rdt_01 of sdo_raster (
+   create table if not exists raster_images_rdt_01 of sdo_raster (
       primary key (
          rasterid, pyramidlevel, bandblocknumber,
          rowblocknumber, columnblocknumber

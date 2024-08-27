@@ -33,7 +33,7 @@ Proceed now with the following steps:
 4. Add a new user
 
    ```sql
-   create user asktom_user identified by "Welcome_1234#" default tablespace asktom_tbs temporary tablespace temp quota unlimited on asktom_tbs;
+   create user if not exists asktom_user identified by "Welcome_1234#" default tablespace asktom_tbs temporary tablespace temp quota unlimited on asktom_tbs;
    ```
 
 5. Grant privileges to the user
