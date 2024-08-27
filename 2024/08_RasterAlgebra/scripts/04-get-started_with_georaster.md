@@ -288,14 +288,14 @@
 
 ### Define metadata and index
 
-   To properly work with the georerenced raster data, the spatial extent must be set based on the used coordinate system.
+   To properly work with the georerenced raster data, the spatial extent must be set based on the used coordinate reference system.
 
    ```sql
    -- Fetch SRID from the database
    select * from cs_srs where cs_name = 'NAD83 / California zone 3';
    ```
 
-   Check [epsg.io](https://epsg.io/26943) to get more details about the coordinate system. You need details from the parameters to insert the SDO metadata for the spatial extent.
+   Check [epsg.io](https://epsg.io/26943) to get more details about the coordinate reference system. You need details from the parameters to insert the SDO metadata for the spatial extent.
 
    ```sql
    -- Remove previously added metadata
@@ -332,7 +332,7 @@
 
    Note: Before proceeding with more processing, open Spatial Studio and show how to use raster data in a project.
 
-   As a result of reprojecting the images to the coordinate system 3857 used by Spatial Studio, we see black pixels at the image borders. We will remove those by defining a specific band value (here: 254) as `NODATA`.
+   As a result of reprojecting the images to the coordinate reference system 3857 used by Spatial Studio, we see black pixels at the image borders. We will remove those by defining a specific band value (here: 254) as `NODATA`.
 
    ```sql
    -- Get raster metadata
@@ -422,7 +422,8 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
    /*
     * SDO_GEOR_RA.rasterMathOp example
     * Transform a set of RGB orthophotos into gray scale images.
-    * Create a copy of the four rasters in RASTER_IMAGES, taking the average of * * the three RED, GREEN and BLUE pixels. This produces single-band rasters.
+    * Create a copy of the four rasters in RASTER_IMAGES, taking the average of the three RED, GREEN and BLUE pixel values(naive way).
+    * This produces single-band rasters.
     */
    declare
       v_georid number;
@@ -459,7 +460,8 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
          -- Perform change
          sdo_geor_ra.rasterMathOp (
             inGeoraster   => gr1,
-            operation     => sdo_string2_array('({0}+{1}+{2})/3'),
+            operation     => sdo_string2_array('({0}+{1}+{2})/3'),  -- naive method
+            -- operation     => sdo_string2_array('0.3*{0}+0.6*{1}+0.1*{2}'),  -- a better approximation
             outGeoraster  => gr2,
             storageParam  => null
          );
