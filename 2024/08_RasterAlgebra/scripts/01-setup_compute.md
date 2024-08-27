@@ -6,7 +6,7 @@
 
    Create a new compute instance on OCI. All following descriptions are based on `Oracle Linux 8` which is the current default compute VM image.
 
-   ![create_a_vm_instance](..\images\create_a_compute_vm.png)
+   ![create_a_vm_instance](../images/create_a_compute_vm.png)
 
    Once the compute VM is provisioned, copy its the public IP address.
 
