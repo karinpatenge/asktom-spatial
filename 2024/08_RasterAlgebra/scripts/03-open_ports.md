@@ -1,6 +1,6 @@
-# Configure your Database for use with local clients
+# Enable and configure client access to your database
 
-To connect to the Oracle Database running in a container on your OCI compute VM, you need to configure two things:
+To connect to the Oracle Database running in a container on your OCI compute VM, you need to configure two more things:
 
 1. Permit incoming TCP traffic via port 1521
 2. Adapt the firewall of the compute VM
@@ -36,3 +36,5 @@ To connect to the Oracle Database running in a container on your OCI compute VM,
       * SQL Developer
 
          ![.\images\db_connection_](../images/db_connection_sql_developer.png)
+
+Proceed now with [Getting started with ORacle GeoRaster](./04-get-started_with_georaster.md).
