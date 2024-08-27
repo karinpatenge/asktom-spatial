@@ -369,11 +369,12 @@
 
 ### Create a virtual mosaic
 
-   The raster image data set contains four single rasters. We now merge these rasters into one virtual mosaic.
+   A virtual mosaic treats a set of GeoRaster images as one large virtually mosaicked image.  
+   We now create such a virtual mosaic from the four rasters stored in `RASTER_IMAGES`.
 
    ```sql
    create or replace view raster_images_mosaic as
-   select * from raster_images where georid < 2000;
+   select * from raster_images where georid in (1,2,3,4);
 
    -- Check result
    select * from  raster_images_mosaic;
