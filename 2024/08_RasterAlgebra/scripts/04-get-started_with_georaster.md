@@ -627,3 +627,5 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
    The result of the operation you can see in the following image:
 
    ![spatial_studio_show_raster_single_image_greenifiede](../images/spatial_studio_show_raster_single_image_greenified.png)
+
+Proceed now with [Use Raster Algebra](./05-using_raster_algebra.md).
