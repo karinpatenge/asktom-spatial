@@ -557,6 +557,10 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
    /
    ```
 
+   The result of this operation you can see in the following image:
+
+   ![spatial_studio_show_raster_single_image_classified](../images/spatial_studio_show_raster_single_image_classifiede.png)
+
 #### Find cell values
 
    Extract pixels from the rasters based on their values.
@@ -619,3 +623,7 @@ Next, we use the Raster Algebra support of the Oracle Database available via the
    end;
    /
    ```
+
+   The result of the operation you can see in the following image:
+
+   ![spatial_studio_show_raster_single_image_greenifiede](../images/spatial_studio_show_raster_single_image_greenified.png)
