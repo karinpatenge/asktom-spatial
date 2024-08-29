@@ -20,6 +20,11 @@ To connect to the Oracle Database running in a container on your OCI compute VM,
    Login as root user to the compute instance.
 
    ```sh
+   # Check the firewall
+   firewall-cmd --state
+   firewall-cmd --list-all
+
+   # Open port 1521
    firewall-cmd --permanent --zone=public --add-port=1521/tcp
    firewall-cmd --reload
    exit
