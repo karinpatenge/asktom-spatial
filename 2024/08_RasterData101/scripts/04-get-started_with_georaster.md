@@ -295,7 +295,7 @@
    select * from cs_srs where cs_name = 'NAD83 / California zone 3';
    ```
 
-   Check [epsg.io](https://epsg.io/26943) to get more details about the coordinate reference system. You need details from the parameters to insert the SDO metadata for the spatial extent.
+   Check [epsg.io](https://epsg.io/26943) to get more details about the coordinate reference system. You need details from the parameters to insert the SDO metadata for the spatial extent. The values for `SDO_DIM_ELEMENT` you find under `Projected Bounds`.
 
    ```sql
    -- Remove previously added metadata
@@ -309,8 +309,8 @@
       'RASTER_IMAGES',
       'GEORASTER.SPATIALEXTENT',
       sdo_dim_array(
-         sdo_dim_element('Easting',  1000000, 2000000, 1),
-         sdo_dim_element('Northing',  500000,  800000, 1)
+         sdo_dim_element('Easting', 1646161.95, 2354733.42, 0.05),
+         sdo_dim_element('Northing', 500000.01, 1119090.03, 0.05)
       ),
       26943
    );
