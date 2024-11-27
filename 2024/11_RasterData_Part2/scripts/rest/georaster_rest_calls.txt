@@ -1,0 +1,13 @@
+-- List all resources in data source
+http://...:8080/oraclespatial/georaster/v1/sdows_ds
+
+-- Get a GeoRaster Object
+http://...:8080/oraclespatial/georaster/v1/sdows_ds/raster_images/georaster/raster_images_rdt_01/1
+
+-- Get GeoRaster Object Cell Values
+-- Get the cell values of the specified GeoRaster Object at the specified location. If the interpolation method exists, the cell values is interpolated to the exact point.
+http://...:8080/oraclespatial/georaster/v1/sdows_ds/raster_images/georaster/raster_images_rdt_01/1/cellValues?pyramidLevel=1&rowNumbers=1&colNumbers=1&bandNumber=1
+
+-- Get GeoRaster Object Metadata
+-- Get the metadata of the specified GeoRaster Object.
+http://...:8080/oraclespatial/georaster/v1/sdows_ds/raster_images/georaster/raster_images_rdt_01/1/metadata

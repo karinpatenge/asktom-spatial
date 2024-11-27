@@ -61,8 +61,10 @@ Proceed now with the following steps:
 8. Enable GeoRaster at schema level
 
    ```sql
+   -- Enable GeoRaster at schema level
    execute sdo_geor_admin.enableGeoRaster;
-   select sdo_geor_admin.isGeoRasterEnabled from dual;
+   -- Verify result
+   select /* NO_RESULT_CACHE */ sdo_geor_admin.isGeoRasterEnabled from dual;
    quit
    ```
 
