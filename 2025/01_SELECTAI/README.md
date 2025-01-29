@@ -9,7 +9,7 @@ The data for the tables
 * US_COUNTIES
 * US_STATES
 
-are stored in [this folder](./data). Use [Oracle Spatial Studio](https://www.oracle.com/database/technologies/spatial-studio/get-started.html) to load them into your 23ai Autonomous Database. IF you haven´t yet installed Spatial Studio, you can download it from [here](https://www.oracle.com/database/technologies/spatial-studio/oracle-spatial-studio-downloads.html).
+are stored in [this folder](./data). Use [Oracle Spatial Studio](https://www.oracle.com/database/technologies/spatial-studio/get-started.html) to load them into your 23ai Autonomous Database. If you haven´t yet installed Spatial Studio, you can download it from [here](https://www.oracle.com/database/technologies/spatial-studio/oracle-spatial-studio-downloads.html).
 
 Use the following scripts to create the remaining tables and fill them with data:
 
