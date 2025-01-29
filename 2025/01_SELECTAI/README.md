@@ -18,7 +18,7 @@ Use the following scripts to create the remaining tables and fill them with data
 * [US_HOSPITALS](./scripts/sql/us_hospitals.sql)
 * [USGS_EARTHQUAKES](./scripts/sql/usgs_earthquakes.sql)
 
-Once you have all datasets in place, you can use [this script](./scripts/sql/SELECTAI_Spatial_tests.sql) to use SELECT AI for testing the generation SQL queries. The tests aim to figure out 
+Once you have all datasets in place, you can use [this script](./scripts/sql/SELECTAI_Spatial_tests.sql) to use `SELECT AI` for testing the generation SQL queries. The tests aim to figure out
 
 1. how well use the generated SQL queries incorporate spatial operators and functions to analyze the data and
 2. what you can do avoid hallucinations and to improve the generated SQL queries.
