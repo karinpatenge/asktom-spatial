@@ -1,11 +1,18 @@
 --
--- Load datasets
+-- Author: Karin Patenge
+-- Date: Jan 28, 2025
 --
+
+-- General remarks:
+--   The script requires an Autonomous Database 23ai.
+--   The spatial datasets belong to the DB user SPATIALUSER.
+--   The application user for the tests with SELECT AI is APEXUSER.
 
 set serveroutput on
 
 --
 -- Grant privileges for datasets
+--   ToDo: Replace the DB schema/users references according to match your Autonomous DB schemas/users.
 --
 
 -- Grant SELECT privilege to APEXUSER on SPATIALUSER objects
@@ -16,13 +23,9 @@ grant select on SPATIALUSER.US_AIRPORTS to APEXUSER;
 grant select on SPATIALUSER.US_STATES to APEXUSER;
 grant select on SPATIALUSER.USGS_EARTHQUAKES to APEXUSER;
 
--- Grants EXECUTE privilege to ADB users
+-- Grants EXECUTE privilege to the application user
 grant execute on DBMS_CLOUD to APEXUSER;
 grant execute on DBMS_CLOUD_AI to APEXUSER;
-
-grant execute on DBMS_CLOUD to SPATIALUSER;
-grant execute on DBMS_CLOUD_AI to SPATIALUSER;
-
 
 --
 -- Clean up
@@ -53,15 +56,6 @@ BEGIN
    );
 END;
 /
-BEGIN
-    DBMS_NETWORK_ACL_ADMIN.APPEND_HOST_ACE(
-         host => 'api.cohere.ai',
-         ace  => xs$ace_type(privilege_list => xs$name_list('http'),
-                             principal_name => 'SPATIALUSER',
-                             principal_type => xs_acl.ptype_db)
-   );
-END;
-/
 
 -- api.openai.com
 BEGIN
@@ -69,15 +63,6 @@ BEGIN
          host => 'api.openai.com',
          ace  => xs$ace_type(privilege_list => xs$name_list('http'),
                              principal_name => 'APEXUSER',
-                             principal_type => xs_acl.ptype_db)
-   );
-END;
-/
-BEGIN
-    DBMS_NETWORK_ACL_ADMIN.APPEND_HOST_ACE(
-         host => 'api.openai.com',
-         ace  => xs$ace_type(privilege_list => xs$name_list('http'),
-                             principal_name => 'SPATIALUSER',
                              principal_type => xs_acl.ptype_db)
    );
 END;
@@ -164,9 +149,11 @@ END;
 --Re-check existing profiles
 select * from user_cloud_ai_profiles;
 
-------------------------------------------
--- Run the next steps using profile OPENAI
-------------------------------------------
+
+--------------------------------------------------------
+-- Execute the following statements using profile OPENAI
+--------------------------------------------------------
+
 -- Enable AI profile in current session
 EXEC DBMS_CLOUD_AI.SET_PROFILE('ASKTOM_OPENAI');
 SELECT DBMS_CLOUD_AI.GET_PROFILE() from dual;
@@ -304,11 +291,11 @@ FROM dual;
 
 
 --
--- Improvements
+-- Check potential improvements
 --
 
--- Better SQL generation through better metadata
--- Add table and column comments
+-- 1. Better SQL generation through better metadata
+--   Add table and column comments
 
 comment on table USGS_EARTHQUAKES is 'Earthquake records from around the world collected from the United States Geological Survey (USGS). Important details about the earthquake such as distance, gap, magnitude, depth and significance are included to properly describe the earthquake. Additionally, data about exact geological coordinates and a relative description of the earthquake’s location is included. The earthquakes collected are from the past month.';
 comment on column USGS_EARTHQUAKES.ID is 'A unique identifier for this earthquake';
