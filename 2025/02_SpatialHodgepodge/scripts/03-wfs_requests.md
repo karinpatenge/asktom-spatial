@@ -1,6 +1,6 @@
 # WFS Sample Requests
 
-[Official web page](https://www.ogc.org/publications/standard/wfs/)
+[OGC WFS - Official web page](https://www.ogc.org/publications/standard/wfs/)
 
 The OGC Web Feature Service (WFS) Interface Standard defines a set of interfaces for accessing geographic information at the feature and feature property level over the Internet. A feature is an abstraction of real world phenomena, that is it is a representation of anything that can be found in the world. The attributes or characteristics of a geographic feature are referred to as feature properties. WFS offer the means to retrieve or query geographic features in a manner independent of the underlying data stores they publish.
 
