@@ -1,4 +1,4 @@
-# AskTOM Spatial Series
+# AskTOM Spatial Series 2024
 
 This document points you to scripts, data, and other assets related to AskTOM Spatial Series sessions in 2024.
 
