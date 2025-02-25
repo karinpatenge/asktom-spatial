@@ -23,11 +23,11 @@ end;
 delete from user_sdo_geom_metadata where table_name like 'FEB25%';
 commit;
 
-------------------------------------------
--- Load new GeoJSON data using Data Studio
-------------------------------------------
+--------------------------------------------------
+-- Action: Load new GeoJSON data using Data Studio
+--------------------------------------------------
 
--- Demo using ADB
+
 
 -- Drop data load logging tables
 begin

@@ -29,6 +29,7 @@ EXEC SDO_GCDR.ELOC_GRANT_ACCESS('ASKTOMUSER');
  * returns the geometry of the polygon in SDO_GEOMETRY format.
  ************************************************************************************************************/
 
+-- Overloaded function using single-line addresses or lon/lat
 SELECT SDO_GCDR.ELOC_DRIVE_TIME_POLYGON(
   'fastest',                             -- route preference (shortest, fastest, or traffic)
   'Alexanderplatz 1, Berlin, 10178',     -- address (single-line address)
@@ -43,7 +44,7 @@ SELECT SDO_GCDR.ELOC_DRIVE_TIME_POLYGON(
   'fastest',                             -- route preference (shortest, fastest, or traffic)
   10.1,                                  -- address (lon)
   50.1,                                  -- address (lat)
-  10,                                     -- Cost - "Radius" of the polygon
+  10,                                    -- Cost - "Radius" of the polygon
   'minute',                              -- Cost unit (mile, kilometer, km, meter, hour, minute, or second)
   'auto'                                 -- Vehicle type (auto, or truck)
 ) polygon
@@ -54,9 +55,8 @@ FROM DUAL;
 --   The output polygon is the area reachable from the start point within specified cost.
 --   If parameter route_preference is set to "shortest", then cost is a distance.
 --   If parameter route_preference is set to "fastest", then cost is time.
-DROP TABLE IF EXISTS feb25_drive_time_polygons PURGE;
 
-TRUNCATE TABLE feb25_drive_time_polygons DROP STORAGE;
+DROP TABLE IF EXISTS feb25_drive_time_polygons PURGE;
 
 CREATE TABLE IF NOT EXISTS feb25_drive_time_polygons (
   id  NUMBER GENERATED ALWAYS AS IDENTITY,
@@ -206,6 +206,8 @@ CREATE INDEX feb25_drive_time_polygons_sidx
 ON feb25_drive_time_polygons(drive_time_polygon)
 INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2;
 
+-- Show map in Spatial Studio
+
 
 /************************************************************************************************************
  * Compute ISO Polygons using SDO_GCDR.ELOC_ISO_POLYGON
@@ -216,6 +218,16 @@ INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2;
  ************************************************************************************************************/
 
 -- Time-based queries
+SELECT SDO_GCDR.ELOC_ISO_POLYGON(
+  'time',                           -- determines, if the polygon is time-based or distance-based
+  '9 Rue des Écoles, 75005 Paris',  -- address
+  'FR',                             -- country
+  10,                               -- cost
+  'minute',                         -- cost unit
+  'auto'                            -- vehicle type
+) AS t
+FROM DUAL;
+
 WITH x AS (
   SELECT SDO_GCDR.ELOC_ISO_POLYGON(
     'time',                           -- determines, if the polygon is time-based or distance-based
@@ -252,6 +264,16 @@ SELECT
 FROM x;
 
 -- Distance-based queries
+SELECT SDO_GCDR.ELOC_ISO_POLYGON(
+  'distance',                       -- determines, if the polygon is time-based or distance-based
+  '9 Rue des Écoles, 75005 Paris',  -- address
+  'FR',                             -- country
+  10,                               -- cost
+  'kilometer',                      -- cost unit
+  'auto'                            -- vehicle type
+) AS t
+FROM DUAL;
+
 WITH x AS (
   SELECT SDO_GCDR.ELOC_ISO_POLYGON(
     'distance',                       -- determines, if the polygon is time-based or distance-based
@@ -295,6 +317,15 @@ FROM x;
  * returns a JSON object that includes the route distance, route time, and geometry of the route in GeoJSON format.
  * The input locations can either be single-line addresses or be specified as lon/lat.
  ************************************************************************************************************/
+SELECT SDO_GCDR.ELOC_ROUTE(
+  'fastest',                   -- route preference
+  'km',                        -- distance unit
+  'minute',                    -- time unit
+  -71.46439, 42.75875,         -- start location (lon/lat)
+  -71.46278, 42.7553,          -- destination location (lon/lat)
+  'auto'                       -- vehicle type
+) AS t
+FROM DUAL;
 
 WITH x AS (
   SELECT SDO_GCDR.ELOC_ROUTE(
@@ -334,9 +365,5 @@ FROM x;
  * Variations to calculate routes available:
  *   SDO_GCDR.ELOC_ROUTE_DISTANCE: Computes the route distance between 2 locations
  *   SDO_GCDR.ELOC_ROUTE_TIME: Computes the travel time between 2 locations
- *   xxSDO_GCDR.ELOC_ROUTE_GEOM: Returns the route between 2 locations as geometry
+ *   SDO_GCDR.ELOC_ROUTE_GEOM: Returns the route between 2 locations as geometry
  *******************************************************************************/
-
-
-
-
