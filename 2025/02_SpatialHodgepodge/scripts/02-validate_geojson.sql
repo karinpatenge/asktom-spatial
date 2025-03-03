@@ -61,9 +61,10 @@ create table if not exists geometry_errors (
   error_context   varchar2(256)
 );
 
-----------------------
+--------------------------
 -- Validate geometries
-----------------------
+-- Author: Albert Godfrind
+--------------------------
 
 -- Clean up any existing errors
 truncate table geometry_errors drop storage;
@@ -211,9 +212,10 @@ select table_name, obj_rowid, error_message, error_context
 from geometry_errors
 order by table_name, obj_rowid;
 
-----------------------
+--------------------------
 -- Fix geometry errors
-----------------------
+-- Author: Albert Godfrind
+--------------------------
 
 declare
   -- Declare a custom exception for uncorrectable geometries
