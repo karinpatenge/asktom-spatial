@@ -1,0 +1,404 @@
+cells:
+  - kind: 1
+    value: "# Working with Point Clouds in the Oracle Database 23ai\r
+
+      \r
+
+      Demo  : Clip a set of points from a Point Cloud object using the PL/SQL
+      Package ```SDO_PC_PKG```\r
+
+      \r
+
+      Author: Karin Patenge, Oracle  \r
+
+      Date  : August 2025"
+    languageId: markdown
+  - kind: 1
+    value: "## Steps\r
+
+      \r
+
+      \  1. Create a synthetic 3D point geometries dataset\r
+
+      \  2. Extract the x,y, and z values from the geometries and store them in
+      a staging table\r
+
+      \  3. Create Point Cloud objects in the database\r
+
+      \  4. Clip out points from the Point Cloud object that are in a specified
+      region"
+    languageId: markdown
+  - kind: 1
+    value: "### Step 1\r
+
+      \r
+
+      Create a synthetic 3D point geometries dataset with three million
+      points.\r\n"
+    languageId: markdown
+  - kind: 2
+    value: "-- Clean up\r
+
+      \r
+
+      DROP TABLE IF EXISTS synthetic_3d_points PURGE;\r
+
+      \r
+
+      -- Create the table\r
+
+      \r
+
+      CREATE TABLE IF NOT EXISTS synthetic_3d_points (\r
+
+      \  id       number,\r
+
+      \  geometry sdo_geometry\r
+
+      ) NOLOGGING;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Empty the table\r
+
+      \r
+
+      TRUNCATE TABLE synthetic_3d_points DROP STORAGE;\r
+
+      \r
+
+      -- Remove the spatial index if it exists\r
+
+      \r
+
+      DROP INDEX IF EXISTS synthetic_3d_points_sidx FORCE;\r
+
+      \r
+
+      -- Fill the table with semi-random 3D points close\r
+
+      \r
+
+      DECLARE\r
+
+      \  curr_lon  number;\r
+
+      \  curr_lat  number;\r
+
+      \  increment number := .0001;\r
+
+      \  id        number;\r
+
+      BEGIN\r
+
+      \  id := 1;\r
+
+      \  FOR lat in 52 .. 52 LOOP\r
+
+      \    curr_lat := lat;\r
+
+      \    FOR lon in 12 .. 12 LOOP\r
+
+      \      --\r
+
+      \      -- Create 1 million points per 1x1 degree cell\r
+
+      \      --\r
+
+      \      FOR i in 1 .. 1000 LOOP\r
+
+      \        curr_lon := lon;\r
+
+      \        FOR j IN 1 .. 1000 LOOP\r
+
+      \          INSERT INTO\r
+
+      \            synthetic_3d_points\r
+
+      \          VALUES (\r
+
+      \            id,\r
+
+      \            sdo_geometry (\r
+
+      \              3001,\r
+
+      \              4978,\r
+
+      \              sdo_point_type (\r
+
+      \                curr_lon,\r
+
+      \                curr_lat,\r
+
+      \                mod (abs (dbms_random.random), 100)\r
+
+      \              ),\r
+
+      \              null,\r
+
+      \              null\r
+
+      \            )\r
+
+      \          );\r
+
+      \          curr_lon := curr_lon + increment;\r
+
+      \          id := id + 1;\r
+
+      \        END LOOP;\r
+
+      \        COMMIT;\r
+
+      \        curr_lat := curr_lat + increment;\r
+
+      \      END LOOP;\r
+
+      \    END LOOP;\r
+
+      \  END LOOP;\r
+
+      \  COMMIT;\r
+
+      END;\r
+
+      /\r
+
+      \r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check the result\r
+
+      \r
+
+      SELECT count(*) FROM synthetic_3d_points;\r
+
+      \r
+
+      SELECT * FROM synthetic_3d_points FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Register the SDO metadata. Make sure it does not exists yet.\r
+
+      \r
+
+      DELETE FROM user_sdo_geom_metadata WHERE table_name =
+      'SYNTHETIC_3D_POINTS';\r
+
+      \r
+
+      INSERT INTO user_sdo_geom_metadata VALUES (\r
+
+      \  'SYNTHETIC_3D_POINTS',\r
+
+      \  'GEOMETRY',\r
+
+      \  sdo_dim_array(\r
+
+      \    sdo_dim_element('X', -180, 180, 0.001),\r
+
+      \    sdo_dim_element('Y', -90, 90, 10),\r
+
+      \    sdo_dim_element('Z', -100, 500, 10)),\r
+
+      \  4978\r
+
+      );\r
+
+      \r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create a 3D spatial index. Make sure it does not exist yet.\r
+
+      \r
+
+      DROP INDEX IF EXISTS synthetic_3d_points_sidx FORCE;\r
+
+      \r
+
+      CREATE INDEX IF NOT EXISTS synthetic_3d_points_sidx ON synthetic_3d_points
+      (geometry) INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2 PARAMETERS
+      ('layer_gtype=POINT sdo_indx_dims=3');\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create an XYZ staging table to later create the Point Cloud object.
+      Make sure the staging table is either empty or does not exists yet.\r
+
+      \r
+
+      DROP TABLE IF EXISTS points_inptab PURGE;\r
+
+      \r
+
+      CREATE TABLE IF NOT EXISTS points_inptab  AS\r
+
+      SELECT\r
+
+      \  p.geometry.sdo_point.x val_d1,\r
+
+      \  p.geometry.sdo_point.y val_d2,\r
+
+      \  p.geometry.sdo_point.z val_d3\r
+
+      FROM\r
+
+      \  synthetic_3d_points p;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check the result\r
+
+      \r
+
+      SELECT * FROM points_inptab FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create a PC table from the XYZ staging table using CREATE_PC_UNIFIED.
+      Make sure the table does not exists yet.\r
+
+      \r
+
+      DROP TABLE IF EXISTS synthetic_3d_pc PURGE;\r
+
+      \r
+
+      CREATE TABLE IF NOT EXISTS synthetic_3d_pc (\r
+
+      \  id          number,\r
+
+      \  point_cloud sdo_pc\r
+
+      ) NOLOGGING;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create the Point Cloud object and its related data table containing
+      the points. The Point Cloud model used in this example is 'Flat'. Make
+      sure the table is empty.\r
+
+      \r
+
+      TRUNCATE TABLE synthetic_3d_pc DROP STORAGE;\r
+
+      \r
+
+      BEGIN\r
+
+      \  sdo_pc_pkg.create_pc_unified (\r
+
+      \    pc_type    => 'Flat',\r
+
+      \    inp_table  => 'POINTS_INPTAB',\r
+
+      \    base_table => 'SYNTHETIC_3D_PC',\r
+
+      \    data_table => 'SYNTHETIC_3D_PC_XYZ',\r
+
+      \    pc_id      => 1,\r
+
+      \    pc_tol     => 0.0001,\r
+
+      \    blk_size   => 10000,\r
+
+      \    create_pyramid => 0\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check the results\r
+
+      \r
+
+      SELECT * FROM synthetic_3d_pc;\r
+
+      \r
+
+      SELECT * FROM synthetic_3d_pc_xyz FETCH FIRST 10 ROWS ONLY;\r
+
+      SELECT count(*) FROM synthetic_3d_pc_xyz;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Show the extents of x, y, and z in the original 3 point geometries.
+      They will be used as query window in the next paragraph.\r
+
+      \r
+
+      SELECT\r
+
+      \  min(p.geometry.sdo_point.x) val_d1_min,\r
+
+      \  max(p.geometry.sdo_point.x) val_d1_max,\r
+
+      \  min(p.geometry.sdo_point.y) val_d2_min,\r
+
+      \  max(p.geometry.sdo_point.y) val_d2_max,\r
+
+      \  min(p.geometry.sdo_point.z) val_d3_min,\r
+
+      \  max(p.geometry.sdo_point.z) val_d3_min\r
+
+      FROM\r
+
+      \  synthetic_3d_points p;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Clip the PC and store the result in table CLIP_RESULT. Make sure the
+      table CLIP_RESULT does not exists yet.\r
+
+      \r
+
+      DROP TABLE IF EXISTS pc_clip_result PURGE;\r
+
+      \r
+
+      BEGIN\r
+
+      \  sdo_pc_pkg.clip_pc_into_table(\r
+
+      \    pc_table => 'SYNTHETIC_3D_PC',\r
+
+      \    pc_column => 'POINT_CLOUD',\r
+
+      \    id_column => 'ID',\r
+
+      \    id => '1',\r
+
+      \    query => mdsys.sdo_geometry(\r
+
+      \      2001,\r
+
+      \      4326,\r
+
+      \      null,\r
+
+      \      sdo_elem_info_array(1,1003,3),\r
+
+      \      sdo_ordinate_array(12.02, 52.03, 12.06, 52.07)\r
+
+      \    ),\r
+
+      \    where_clause => null,\r
+
+      \    result_table_name => 'PC_CLIP_RESULT',\r
+
+      \    lods => sdo_lods_type(1)\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Show the result\r
+
+      \r
+
+      SELECT * FROM pc_clip_result FETCH FIRST 10 ROWS ONLY;\r
+
+      SELECT COUNT(*) FROM pc_clip_result;\r\n"
+    languageId: oracle-sql

@@ -1,0 +1,458 @@
+cells:
+  - kind: 1
+    value: "# Working with Point Clouds in the Oracle Database 23ai\r
+
+      \r
+
+      Demo  : Detect changes in point clouds using the PL/SQL Package
+      ```SDO_PC_PKG```\r
+
+      \r
+
+      Author: Karin Patenge, Oracle  \r
+
+      Date  : August 2025"
+    languageId: markdown
+  - kind: 1
+    value: "## Steps\r
+
+      \r
+
+      \  0. Check and view .las/.laz\r
+
+      \  1. Convert .las/.laz to .txt\r
+
+      \  2. Create staging table to upload the .txt files\r
+
+      \  3. Upload the .txt files into the database\r
+
+      \  4. Create Point Cloud objects in the database\r
+
+      \  5. Create difference of the two point clouds\r\n"
+    languageId: markdown
+  - kind: 1
+    value: "### Step 0\r
+
+      \r
+
+      Data source laz files: https://github.com/PDAL/data/tree/master/liblas\r
+
+      \r
+
+      Check using LASTOOLS:\r
+
+      \r
+
+      ```txt\r
+
+      lasinfo64 -no_check \"Palm Beach Pre Hurricane.laz\" -v\r
+
+      lasinfo64 -no_check \"Palm Beach Post Hurricane.laz\" -v\r
+
+      ```\r
+
+      \r
+
+      View using LASTOOLS:\r
+
+      \r
+
+      ```txt\r
+
+      lasview\r
+
+      ```"
+    languageId: markdown
+  - kind: 1
+    value: "### Step 1\r
+
+      \r
+
+      Convert ```.las```/```.laz``` to text using LASTOOLS. Extract only the
+      values for the attributes ```x```,```y```, and ```z```.\r
+
+      \r
+
+      ```txt\r
+
+      las2txt64 -i \"Palm Beach Pre Hurricane.laz\" -o
+      PalmBeach_PreHurricane_xyz.csv -parse xyz -sep semicolon\r
+
+      las2txt64 -i \"Palm Beach Post Hurricane.laz\" -o
+      PalmBeach_PostHurricane_xyz.csv -parse xyz -sep semicolon\r
+
+      ```\r\n"
+    languageId: markdown
+  - kind: 1
+    value: "### Step 3\r
+
+      \r
+
+      Create the table structures needed"
+    languageId: markdown
+  - kind: 2
+    value: "-- Clean up first\r
+
+      \r
+
+      DROP TABLE IF EXISTS pc_inptab PURGE;\r
+
+      DROP TABLE IF EXISTS lidar_scenes PURGE;\r
+
+      DROP TABLE IF EXISTS lidar_scenes_xyz_pre PURGE;\r
+
+      DROP TABLE IF EXISTS lidar_scenes_xyz_post PURGE;\r
+
+      DROP TABLE IF EXISTS lidar_scenes_diff_pre_post PURGE;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create a staging table to upload the converted .las/laz files\r
+
+      \r
+
+      CREATE TABLE IF NOT EXISTS pc_inptab (\r
+
+      \  val_d1    number(38,10),           -- representing the x coordinate\r
+
+      \  val_d2    number(38,10),           -- representing the y coordinate\r
+
+      \  val_d3    number(38,10)            -- representing the z height\r
+
+      ) NOLOGGING;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create the table to store the Point Cloud objects\r
+
+      \r
+
+      CREATE TABLE IF NOT EXISTS lidar_scenes (\r
+
+      \  id          number,\r
+
+      \  point_cloud sdo_pc\r
+
+      ) NOLOGGING;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "### Step 3\r
+
+      \r
+
+      Upload the converted las./laz files into the staging table using SQLcl.\r
+
+      \r
+
+      #### Connect to SQLcl\r
+
+      \r
+
+      ```txt\r
+
+      sql /nolog\r
+
+      connect <user>/<pwd>@<service>\r
+
+      ```\r
+
+      \r
+
+      Note:\r
+
+      \r
+
+      \  * Replace the placeholders with proper connection string details.\r
+
+      \r
+
+      #### SQLcl settings for the upload\r
+
+      \r
+
+      ```txt\r
+
+      set load batch_rows 100 batches_per_commit 100\r
+
+      set timing on\r
+
+      set loadformat column_names off\r
+
+      set loadformat delimiter ;\r
+
+      set loadformat delimited\r
+
+      ```\r
+
+      \r
+
+      #### Upload the first dataset: Palm Beach - Pre Hurricane\r
+
+      \r
+
+      ```txt\r
+
+      LOAD TABLE pc_inptab PalmBeach_PreHurricane_xyz.csv\r
+
+      ```\r
+
+      \r
+
+      Result:\r
+
+      \r
+
+      \  * INFO Number of rows processed: 2,580,410\r
+
+      \  * Total Elapsed: 00:01:29.424\r
+
+      \r\n"
+    languageId: markdown
+  - kind: 2
+    value: "-- Check the uploaded data\r
+
+      \r
+
+      SELECT count(*) FROM pc_inptab;\r
+
+      SELECT * FROM pc_inptab FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "### Step 4\r
+
+      \r
+
+      Create a Point Cloud object for Palm Beach Pre Hurricane in table
+      ```LIDAR_SCENES```. All points belonging to the Point Cloud object will be
+      stored in a table called ```LIDAR_SCENES_XYZ_PRE```.\r\n"
+    languageId: markdown
+  - kind: 2
+    value: "-- Make sure the table is empty\r
+
+      \r
+
+      TRUNCATE TABLE lidar_scenes DROP STORAGE;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create the Point Cloud object and its related data table containing
+      the points. The Point Cloud model used in this example is 'Flat'.\r
+
+      \r
+
+      BEGIN\r
+
+      \  sdo_pc_pkg.create_pc_unified (\r
+
+      \    pc_type    => 'Flat',\r
+
+      \    inp_table  => 'PC_INPTAB',\r
+
+      \    base_table => 'LIDAR_SCENES',\r
+
+      \    data_table => 'LIDAR_SCENES_XYZ_PRE',\r
+
+      \    pc_id      => 111,\r
+
+      \    pc_tol     => 0.05,\r
+
+      \    blk_size   => 10000,\r
+
+      \    srid       => null\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check results\r
+
+      \r
+
+      SELECT * FROM LIDAR_SCENES;\r
+
+      SELECT * FROM lidar_scenes_xyz_pre FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Empty the staging table for the second upload\r
+
+      \r
+
+      TRUNCATE TABLE pc_inptab DROP STORAGE;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "### Repeat step 3\r
+
+      \r
+
+      #### Upload the second dataset: Palm Beach - Post Hurricane\r
+
+      \r
+
+      ```txt\r
+
+      LOAD TABLE pc_inptab PalmBeach_PostHurricane_xyz.csv\r
+
+      ```\r
+
+      \r
+
+      Result:\r
+
+      \r
+
+      \  * INFO Number of rows processed: 1,924,631\r
+
+      \  * Total Elapsed: 00:00:44.089\r\n"
+    languageId: markdown
+  - kind: 2
+    value: "-- Check the uploaded data\r
+
+      \r
+
+      SELECT count(*) FROM pc_inptab;\r
+
+      SELECT * FROM pc_inptab FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "### Repeat step 4:\r
+
+      \r
+
+      Create a Point Cloud object for Palm Beach Post Hurricane in table
+      ```LIDAR_SCENES```. All points belonging to the Point Cloud object will be
+      stored in a table called ```LIDAR_SCENES_XYZ_POST```.\r\n"
+    languageId: markdown
+  - kind: 2
+    value: "-- Create the Point Cloud object and its related data table containing
+      the points. The Point Cloud model used in this example is 'Flat'.\r
+
+      \r
+
+      BEGIN\r
+
+      \  sdo_pc_pkg.create_pc_unified (\r
+
+      \    pc_type    => 'Flat',\r
+
+      \    inp_table  => 'PC_INPTAB',\r
+
+      \    base_table => 'LIDAR_SCENES',\r
+
+      \    data_table => 'LIDAR_SCENES_XYZ_POST',\r
+
+      \    pc_id      => 222,\r
+
+      \    pc_tol     => 0.05,\r
+
+      \    blk_size   => 10000,\r
+
+      \    srid       => null\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check the results\r
+
+      \r
+
+      SELECT * FROM lidar_scenes;\r
+
+      SELECT * FROM lidar_scenes_xyz_post FETCH FIRST 10 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: Table ```LIDAR_SCENES``` contains two row representing the two Point
+      Cloud objects identified by ```111``` and ```222```.
+    languageId: markdown
+  - kind: 1
+    value: "### Step 5\r
+
+      \r
+
+      Create the difference between the two Point Cloud objects using
+      ```SDO_PC_PKG.PC_DIFFERENCE```."
+    languageId: markdown
+  - kind: 2
+    value: "-- Check first the extents of the x, y, z values in the two data tables
+      attached to the Point Cloud objects in table LIDAR_SCENES.\r
+
+      \r
+
+      SELECT round(min(val_d1)) AS min_x, round(min(val_d2)) AS min_y,
+      round(min(val_d3)) AS min_z,round(max(val_d1)) AS max_x,
+      round(max(val_d2)) AS max_y, round(max(val_d3)) AS max_z FROM
+      lidar_scenes_xyz_pre;\r
+
+      SELECT round(min(val_d1)) AS min_x, round(min(val_d2)) AS min_y,
+      round(min(val_d3)) AS min_z,round(max(val_d1)) AS max_x,
+      round(max(val_d2)) AS max_y, round(max(val_d3)) AS max_z FROM
+      lidar_scenes_xyz_post;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Make sure the result table for the next step does not exist\r
+
+      \r
+
+      DROP TABLE IF EXISTS lidar_scenes_xyz_diff_pre_post PURGE;\r
+
+      \r
+
+      -- Determine all points in the first Point Cloud object that have no
+      neighboring points in the second Point Cloud object.ALTER\r
+
+      \r
+
+      BEGIN\r
+
+      \  sdo_pc_pkg.pc_difference(\r
+
+      \    pc_table1           =>  'LIDAR_SCENES',\r
+
+      \    pc_column1        =>  'POINT_CLOUD',\r
+
+      \    id_column1        =>  'ID',\r
+
+      \    id1               =>  '111',\r
+
+      \    pc_table2         =>  'LIDAR_SCENES',\r
+
+      \    pc_column2        =>  'POINT_CLOUD',\r
+
+      \    id_column2        =>  'ID',\r
+
+      \    id2               =>  '222',\r
+
+      \    result_table_name =>  'LIDAR_SCENES_XYZ_DIFF_PRE_POST',\r
+
+      \    tol               =>  1,\r
+
+      \    query_geom        =>  sdo_geometry (\r
+
+      \      2003,\r
+
+      \      null,\r
+
+      \      null,\r
+
+      \      sdo_elem_info_array(1, 1003, 3),\r
+
+      \      sdo_ordinate_array(0, 0, 1000000, 1000000))\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Check the results\r
+
+      \r
+
+      SELECT * FROM lidar_scenes_xyz_diff_pre_post FETCH FIRST 10 ROWS ONLY;\r
+
+      SELECT count(*) FROM lidar_scenes_xyz_diff_pre_post;\r\n"
+    languageId: oracle-sql
