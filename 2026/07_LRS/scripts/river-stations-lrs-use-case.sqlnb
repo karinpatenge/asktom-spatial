@@ -1,0 +1,206 @@
+cells:
+  - kind: 2
+    value: "-- Locate a point on Brazos River using a measure\r
+
+      SELECT sdo_lrs.locate_pt(geom_lrs, 12345.678) FROM tx_brazos_river;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "SELECT\r
+
+      \  sdo_lrs.project_pt(\r
+
+      \    a.geom_lrs,\r
+
+      \    b.geom\r
+
+      \  ) as proj_pt\r
+
+      FROM\r
+
+      \  tx_brazos_river a,\r
+
+      \  tx_stations_clean b\r
+
+      WHERE\r
+
+      \  b.station_code='BZ1U';\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "SELECT\r
+
+      \  sdo_lrs.get_measure(\r
+
+      \    sdo_lrs.project_pt(\r
+
+      \      a.geom_lrs,\r
+
+      \      b.geom\r
+
+      \    )\r
+
+      \  ) AS m\r
+
+      FROM\r
+
+      \  tx_brazos_river a,\r
+
+      \  tx_stations_clean b\r
+
+      WHERE\r
+
+      \  b.station_code='BZ1U';\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "CREATE OR REPLACE VIEW tx_brazos_river_lrs_vw\r
+
+      AS \r
+
+      WITH \r
+
+      \  start_m AS (\r
+
+      \    SELECT\r
+
+      \      sdo_lrs.get_measure(\r
+
+      \        sdo_lrs.project_pt(\r
+
+      \          a.geom_lrs,\r
+
+      \          b.geom\r
+
+      \        )\r
+
+      \      ) AS m\r
+
+      \    FROM\r
+
+      \      tx_brazos_river a,\r
+
+      \      tx_stations_clean b\r
+
+      \    WHERE\r
+
+      \      b.station_code='BZ1U'\r
+
+      \  ),\r
+
+      \  end_m AS (\r
+
+      \    SELECT\r
+
+      \      sdo_lrs.get_measure(\r
+
+      \        sdo_lrs.project_pt(\r
+
+      \          a.geom_lrs,\r
+
+      \          b.geom\r
+
+      \        )\r
+
+      \      ) AS m\r
+
+      \    FROM\r
+
+      \      tx_brazos_river a,\r
+
+      \      tx_stations_clean b\r
+
+      \    WHERE\r
+
+      \      b.station_code='BZ2L'\r
+
+      \    )\r
+
+      \  SELECT\r
+
+      \    'DYNAMIC SEGMENT EXAMPLE' AS name, \r
+
+      \    sdo_lrs.convert_to_std_geom(\r
+
+      \      sdo_lrs.dynamic_segment(\r
+
+      \        geom_lrs,\r
+
+      \        start_m.m,\r
+
+      \        end_m.m\r
+
+      \      )\r
+
+      \    ) as geom\r
+
+      \  FROM\r
+
+      \    tx_brazos_river,\r
+
+      \    start_m,\r
+
+      \    end_m;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "SELECT * FROM tx_brazos_river_lrs_vw;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "CREATE OR REPLACE VIEW tx_brazos_river_lrs_vw AS\r
+
+      WITH\r
+
+      \  start_m AS (\r
+
+      \    SELECT\r
+
+      \      sdo_lrs.get_measure(\r
+
+      \        sdo_lrs.project_pt(a.geom_lrs, b.geom)\r
+
+      \      ) AS m\r
+
+      \    FROM\r
+
+      \      tx_brazos_river a, tx_stations_clean b\r
+
+      \    WHERE\r
+
+      \      b.station_code='BZ1U'\r
+
+      \  ),\r
+
+      \  end_m AS (\r
+
+      \    SELECT\r
+
+      \      sdo_lrs.get_measure(\r
+
+      \        sdo_lrs.project_pt(a.geom_lrs, b.geom)\r
+
+      \      ) AS m\r
+
+      \    FROM\r
+
+      \      tx_brazos_river a,tx_stations_clean b\r
+
+      \    WHERE\r
+
+      \      b.station_code='BZ2L'\r
+
+      \    )\r
+
+      \  SELECT\r
+
+      \    'DYNAMIC SEGMENT EXAMPLE' AS name,\r
+
+      \    sdo_lrs.convert_to_std_geom(\r
+
+      \      sdo_lrs.dynamic_segment(geom_lrs, start_m.m, end_m.m)\r
+
+      \    ) as geom\r
+
+      \  FROM\r
+
+      \    tx_brazos_river, start_m, end_m;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: ""
+    languageId: oracle-sql

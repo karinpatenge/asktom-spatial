@@ -1,0 +1,899 @@
+cells:
+  - kind: 1
+    value: "## 1. Schema setup: The Pipeline Route (LRS Geometric Segment)"
+    languageId: markdown
+  - kind: 2
+    value: "-- The pipeline centerline table (the LRS \"geometric segment\" /
+      \"linear feature\" table).\r
+
+      CREATE TABLE pipeline_routes (\r
+
+      \  pipeline_id  NUMBER PRIMARY KEY,\r
+
+      \  pipeline_name VARCHAR2(64),\r
+
+      \  geom         sdo_geometry\r
+
+      );\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Sample pipeline: a synthetic 34.0 km gas transmission line in central
+      Texas,\r
+
+      -- illustrative only. Chainage (the M ordinate) is in meters from the
+      compressor\r
+
+      -- station. One shape point (P4) is left with a NULL chainage on purpose,
+      to be\r
+
+      -- populated automatically when the segment is defined below.\r
+
+      INSERT INTO pipeline_routes VALUES (\r
+
+      \  1,\r
+
+      \  'TX-100',\r
+
+      \  SDO_GEOMETRY(\r
+
+      \    3302,  -- 2D LRS line string: X, Y, M\r
+
+      \    4326,  -- geodetic WGS84, matches the SRID used for point queries
+      below\r
+
+      \    NULL,\r
+
+      \    sdo_elem_info_array(1,2,1), -- one line string, straight segments\r
+
+      \    sdo_ordinate_array(\r
+
+      \      -97.7500, 30.1000, 0,      -- P1: Comanche Compressor Station
+      (start)\r
+
+      \      -97.7100, 30.1400, 6000,   -- P2\r
+
+      \      -97.6700, 30.1900, 13500,  -- P3: crosses into the next county\r
+
+      \      -97.6400, 30.2400, NULL,   -- P4: chainage populated by
+      DEFINE_GEOM_SEGMENT\r
+
+      \      -97.6100, 30.2800, 27000,  -- P5\r
+
+      \      -97.5800, 30.3200, 34000   -- P6: Round Rock Take Station (end)\r
+
+      \    )\r
+
+      \  )\r
+
+      );\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Register the LRS metadata; the measure (M) dimension must be last.\r
+
+      DELETE\r
+
+      FROM user_sdo_geom_metadata\r
+
+      WHERE table_name = 'PIPELINE_ROUTES';\r
+
+      \r
+
+      INSERT INTO user_sdo_geom_metadata (table_name, column_name, diminfo,
+      srid)\r
+
+      \  VALUES (\r
+
+      \    'PIPELINE_ROUTES',\r
+
+      \    'GEOM',\r
+
+      \    sdo_dim_array(\r
+
+      \      sdo_dim_element('X', -180, 180, 0.00001),\r
+
+      \      sdo_dim_element('Y', -90, 90, 0.00001),\r
+
+      \      sdo_dim_element('M', 0, 50000, 0.5)),\r
+
+      \    4326\r
+
+      \  );\r
+
+      \r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Spatial index. Default sdo_indx_dims is 2, so only X and Y are
+      indexed —\r
+
+      -- the measure dimension is correctly left out of the index.\r
+
+      CREATE INDEX pipeline_routes_sx ON pipeline_routes(geom) INDEXTYPE IS
+      mdsys.spatial_index_v2;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Verify the SDO metadata\r
+
+      SELECT * FROM user_sdo_geom_metadata WHERE table_name LIKE 'PIPELINE%'
+      ORDER BY table_name;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Define the segment: populates the NULL chainage at P4 from the
+      surrounding\r
+
+      -- known measures, and establishes the segment as usable by other LRS
+      functions.\r
+
+      DECLARE\r
+
+      \  geom_segment sdo_geometry;\r
+
+      \  dim_array    sdo_dim_array;\r
+
+      BEGIN\r
+
+      \  SELECT geom INTO geom_segment FROM pipeline_routes WHERE pipeline_id =
+      1;\r
+
+      \r
+
+      \  SELECT m.diminfo INTO dim_array\r
+
+      \  FROM user_sdo_geom_metadata m\r
+
+      \  WHERE m.table_name = 'PIPELINE_ROUTES' AND m.column_name = 'GEOM';\r
+
+      \r
+
+      \  sdo_lrs.define_geom_segment(geom_segment, dim_array);\r
+
+      \r
+
+      \  UPDATE pipeline_routes SET geom = geom_segment WHERE pipeline_id = 1;\r
+
+      END;\r
+
+      /\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 2. Validation Before Use"
+    languageId: markdown
+  - kind: 2
+    value: "-- Confirm the route is a valid, fully defined LRS segment before
+      relying on it.\r
+
+      SELECT\r
+
+      \  sdo_lrs.valid_geom_segment(geom) AS is_valid_segment,\r
+
+      \  sdo_lrs.is_geom_segment_defined(geom) AS is_defined,\r
+
+      \  sdo_lrs.valid_measure(geom, 20000) AS is_20000_valid_chainage,\r
+
+      \  sdo_lrs.geom_segment_start_measure(geom) AS start_chainage,\r
+
+      \  sdo_lrs.geom_segment_end_measure(geom) AS end_chainage,\r
+
+      \  sdo_lrs.geom_segment_length(geom) AS chainage_length\r
+
+      FROM\r
+
+      \  pipeline_routes\r
+
+      WHERE\r
+
+      \  pipeline_id = 1;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 3. Point Assets Located by Chainage (SDO_LRS.LOCATE_PT)\r
+
+      \r
+
+      Assets are stored as a single measure (chainage) each — no geometry is
+      stored for them. Their coordinates are derived on demand with LOCATE_PT,
+      exactly the highway-exit pattern in the worked example, applied here to
+      valves and stations."
+    languageId: markdown
+  - kind: 2
+    value: "CREATE TABLE pipeline_assets (\r
+
+      \  asset_id     NUMBER PRIMARY KEY,\r
+
+      \  pipeline_id  NUMBER,\r
+
+      \  asset_type   VARCHAR2(20),  -- COMPRESSOR_STATION, PIG_LAUNCHER,
+      PIG_RECEIVER, VALVE, DELIVERY_STATION\r
+
+      \  asset_name   VARCHAR2(64),\r
+
+      \  chainage     NUMBER\r
+
+      );\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Populate with data\r
+
+      INSERT INTO pipeline_assets VALUES (1, 1, 'COMPRESSOR_STATION', 'Comanche
+      Compressor Station', 0);\r
+
+      INSERT INTO pipeline_assets VALUES (2, 1,
+      'PIG_LAUNCHER',       'PL-1',                        100);\r
+
+      INSERT INTO pipeline_assets VALUES (3, 1,
+      'VALVE',              'MLV-12',                      9500);\r
+
+      INSERT INTO pipeline_assets VALUES (4, 1,
+      'VALVE',              'MLV-13',                      19000);\r
+
+      INSERT INTO pipeline_assets VALUES (5, 1,
+      'VALVE',              'MLV-14',                      28500);\r
+
+      INSERT INTO pipeline_assets VALUES (6, 1,
+      'PIG_RECEIVER',       'PR-1',                        33900);\r
+
+      INSERT INTO pipeline_assets VALUES (7, 1, 'DELIVERY_STATION',   'Round
+      Rock Take Station',      34000);\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Verify data load\r
+
+      SELECT * FROM pipeline_assets;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Derive each asset's coordinates from the pipeline centerline and its
+      chainage.\r
+
+      -- Offset 0 means \"on the centerline\" (no perpendicular offset).\r
+
+      CREATE OR REPLACE VIEW pipeline_asset_centerline_pts_vw\r
+
+      AS\r
+
+      SELECT\r
+
+      \  a.asset_name,\r
+
+      \  a.asset_type,\r
+
+      \  a.chainage,\r
+
+      \  sdo_lrs.locate_pt(r.geom, a.chainage, 0) AS asset_point\r
+
+      FROM\r
+
+      \  pipeline_assets a,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  a.pipeline_id = r.pipeline_id\r
+
+      ORDER BY\r
+
+      \  a.chainage;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Above-ground marker convention: valve signage is offset 15 m to the
+      right\r
+
+      -- of the pipeline centerline (negative offset = right, per the
+      documented\r
+
+      -- left/right convention, following the vertex order of the line).\r
+
+      SELECT\r
+
+      \  a.asset_name,\r
+
+      \  sdo_lrs.locate_pt(r.geom, a.chainage, -15) AS marker_sign_point\r
+
+      FROM\r
+
+      \  pipeline_assets a,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  a.pipeline_id = r.pipeline_id\r
+
+      \  AND a.asset_type = 'VALVE';\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "CREATE OR REPLACE VIEW pipeline_asset_offset_pts_vw\r
+
+      AS\r
+
+      SELECT\r
+
+      \  a.asset_name,\r
+
+      \  sdo_lrs.locate_pt(r.geom, a.chainage, -15) AS marker_sign_point\r
+
+      FROM\r
+
+      \  pipeline_assets a,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  a.pipeline_id = r.pipeline_id;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Verify the views\r
+
+      SELECT * FROM pipeline_asset_centerline_pts_vw;\r
+
+      SELECT * FROM pipeline_asset_offset_pts_vw;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 4. Anomalies as Dynamically Segmented Events\r
+
+      \r
+
+      Anomalies detected by an in-line inspection are recorded as (from_measure,
+      to_measure) intervals against the pipeline — a point defect (a dent or a
+      girth-weld crack) has from_measure = to_measure; a corrosion patch spans a
+      range. No anomaly geometry is stored; it is produced on demand by
+      CLIP_GEOM_SEGMENT, the same dynamic-segmentation pattern used for road
+      conditions."
+    languageId: markdown
+  - kind: 2
+    value: "CREATE TABLE pipeline_anomalies (\r
+
+      \  anomaly_id    NUMBER PRIMARY KEY,\r
+
+      \  pipeline_id   NUMBER,\r
+
+      \  anomaly_type  VARCHAR2(20),  -- DENT, CORROSION, CRACK\r
+
+      \  severity      VARCHAR2(12),  -- IMMEDIATE, SCHEDULED, MONITOR\r
+
+      \  from_measure  NUMBER,\r
+
+      \  to_measure    NUMBER,\r
+
+      \  -- Raw coordinate as reported by the in-line inspection tool's
+      onboard\r
+
+      \  -- odometer/GPS correlation. This is approximate and typically drifts\r
+
+      \  -- from the true centerline — see Section 5 for snapping it back.\r
+
+      \  reported_geom SDO_GEOMETRY\r
+
+      );\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Populate with data\r
+
+      INSERT INTO pipeline_anomalies VALUES (\r
+
+      \  1, 1, 'DENT', 'MONITOR', 4200, 4200,\r
+
+      \  SDO_GEOMETRY(2001, 4326, sdo_point_type(-97.7230, 30.1310, NULL), NULL,
+      NULL));\r
+
+      INSERT INTO pipeline_anomalies VALUES (\r
+
+      \  2, 1, 'CORROSION', 'IMMEDIATE', 11800, 12150,\r
+
+      \  SDO_GEOMETRY(2001, 4326, sdo_point_type(-97.6820, 30.1720, NULL), NULL,
+      NULL));\r
+
+      INSERT INTO pipeline_anomalies VALUES (\r
+
+      \  3, 1, 'CRACK', 'SCHEDULED', 24000, 24000,\r
+
+      \  SDO_GEOMETRY(2001, 4326, sdo_point_type(-97.6260, 30.2620, NULL), NULL,
+      NULL));\r
+
+      INSERT INTO pipeline_anomalies VALUES (\r
+
+      \  4, 1, 'CORROSION', 'IMMEDIATE', 30500, 30900,\r
+
+      \  SDO_GEOMETRY(2001, 4326, sdo_point_type(-97.5960, 30.3010, NULL), NULL,
+      NULL));\r
+
+      COMMIT;\r
+
+      \r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create an index\r
+
+      CREATE INDEX pipeline_anomalies_idx ON pipeline_anomalies
+      (pipeline_id);\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Dynamic segmentation: compute each anomaly's actual pipe geometry on
+      demand.\r
+
+      -- A point anomaly (from = to) clips to a single point; a range clips to
+      a\r
+
+      -- short line string.\r
+
+      SELECT\r
+
+      \  an.anomaly_id,\r
+
+      \  an.anomaly_type,\r
+
+      \  an.severity,\r
+
+      \  sdo_lrs.clip_geom_segment(r.geom, an.from_measure, an.to_measure) AS
+      anomaly_geom\r
+
+      FROM\r
+
+      \  pipeline_anomalies an,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  an.pipeline_id = r.pipeline_id;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Encapsulate the clip in a view, the same way the road-condition
+      example\r
+
+      -- exposes US_INTERSTATES_LRS_CONDITION for mapping tools.\r
+
+      CREATE OR REPLACE VIEW pipeline_anomaly_segments_vw\r
+
+      AS\r
+
+      SELECT\r
+
+      \  an.anomaly_id,\r
+
+      \  an.anomaly_type,\r
+
+      \  an.severity,\r
+
+      \  sdo_lrs.clip_geom_segment(r.geom, an.from_measure, an.to_measure) AS
+      geom\r
+
+      FROM\r
+
+      \  pipeline_anomalies an,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  an.pipeline_id = r.pipeline_id;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Verify the view\r
+
+      SELECT * FROM pipeline_anomaly_segments_vw;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- The view needs its own USER_SDO_GEOM_METADATA row, copied from the
+      base table.\r
+
+      DELETE\r
+
+      FROM user_sdo_geom_metadata\r
+
+      WHERE table_name = 'PIPELINE_ANOMALY_SEGMENTS_VW';\r
+
+      \r
+
+      INSERT INTO user_sdo_geom_metadata\r
+
+      \  SELECT\r
+
+      \    'PIPELINE_ANOMALY_SEGMENTS_VW',\r
+
+      \    'GEOM',\r
+
+      \    diminfo,\r
+
+      \    srid\r
+
+      \  FROM\r
+
+      \    user_sdo_geom_metadata\r
+
+      \  WHERE\r
+
+      \    table_name = 'PIPELINE_ROUTES';\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 5. Snapping an ILI-Reported Anomaly onto the Centerline\r
+
+      \r
+
+      This is the direct application of `PROJECT_PT` / `FIND_MEASURE` /
+      `FIND_OFFSET`: the inspection tool's onboard position for anomalyis
+      approximate. Projecting it onto the pipeline recovers the authoritative
+      point on the centerline, its true chainage, and how far the raw reading
+      had drifted (the offset).  \r
+
+      `authoritative_chainage` is the corrected station to record for the
+      anomaly (compare it against the operator-assigned
+      `from_measure`/`to_measure` used above); `tool_drift_offset` quantifies
+      how far off the raw ILI reading was from the true centerline — a real
+      integrity-management QA metric."
+    languageId: markdown
+  - kind: 2
+    value: "SELECT\r
+
+      \  an.anomaly_id,\r
+
+      \  sdo_lrs.project_pt(r.geom, an.reported_geom) AS snapped_point,\r
+
+      \  sdo_lrs.find_measure(r.geom, an.reported_geom) AS
+      authoritative_chainage,\r
+
+      \  sdo_lrs.find_offset(r.geom, an.reported_geom) AS tool_drift_offset\r
+
+      FROM\r
+
+      \  pipeline_anomalies an,\r
+
+      \  pipeline_routes r\r
+
+      WHERE\r
+
+      \  an.pipeline_id = r.pipeline_id\r
+
+      \  AND an.anomaly_id = 2;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 6. Intersecting the Route with County Boundaries
+      (SDO_LRS.LRS_INTERSECTION)"
+    languageId: markdown
+  - kind: 2
+    value: "CREATE TABLE pipeline_counties (\r
+
+      \  county_id  NUMBER PRIMARY KEY,\r
+
+      \  county     VARCHAR2(32),\r
+
+      \  state_abrv VARCHAR2(2),\r
+
+      \  geom       SDO_GEOMETRY\r
+
+      );\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Two simple illustrative county polygons the pipeline crosses between
+      them\r
+
+      -- (the boundary falls near chainage 13500, close to shape point P3
+      above).\r
+
+      INSERT INTO pipeline_counties VALUES (\r
+
+      \  1,\r
+
+      \  'Milam',\r
+
+      \  'TX',\r
+
+      \  SDO_GEOMETRY(\r
+
+      \    2003,\r
+
+      \    4326,\r
+
+      \    NULL,\r
+
+      \    sdo_elem_info_array(1, 1003, 1),\r
+
+      \    sdo_ordinate_array(\r
+
+      \      -97.80, 30.05,\r
+
+      \      -97.68, 30.05,\r
+
+      \      -97.68, 30.20, \r
+
+      \      -97.80, 30.20, \r
+
+      \      -97.80, 30.05\r
+
+      \    )\r
+
+      \  )\r
+
+      );\r
+
+      INSERT INTO pipeline_counties VALUES (\r
+
+      \  2,\r
+
+      \  'Williamson',\r
+
+      \  'TX',\r
+
+      \  SDO_GEOMETRY(\r
+
+      \    2003,\r
+
+      \    4326,\r
+
+      \    NULL,\r
+
+      \    sdo_elem_info_array(1, 1003, 1),\r
+
+      \    sdo_ordinate_array(\r
+
+      \      -97.68, 30.18, \r
+
+      \      -97.55, 30.18,\r
+
+      \      -97.55, 30.35,\r
+
+      \      -97.68, 30.35,\r
+
+      \      -97.68, 30.18\r
+
+      \    )\r
+
+      \  )\r
+
+      );\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- The table needs its own USER_SDO_GEOM_METADATA row.\r
+
+      DELETE\r
+
+      FROM user_sdo_geom_metadata\r
+
+      WHERE table_name = 'PIPELINE_COUNTIES';\r
+
+      \r
+
+      INSERT INTO user_sdo_geom_metadata (table_name, column_name, diminfo,
+      srid)\r
+
+      \  VALUES (\r
+
+      \    'PIPELINE_COUNTIES',\r
+
+      \    'GEOM',\r
+
+      \    sdo_dim_array(\r
+
+      \      sdo_dim_element('X', -180, 180, 0.00001),\r
+
+      \      sdo_dim_element('Y', -90, 90, 0.00001)),\r
+
+      \    4326\r
+
+      \  );\r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Create a spatial index\r
+
+      CREATE INDEX pipeline_counties_sidx ON pipeline_counties(geom) INDEXTYPE
+      IS mdsys.spatial_index_v2;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Which portion of the pipeline lies in Milam county, and its chainage
+      range?\r
+
+      SELECT\r
+
+      \  sdo_lrs.geom_segment_length(geom) AS length_in_county,\r
+
+      \  sdo_lrs.geom_segment_start_pt(geom) AS start_pt,\r
+
+      \  sdo_lrs.geom_segment_end_pt(geom) AS end_pt,\r
+
+      \  sdo_lrs.geom_segment_start_measure(geom) AS start_chainage,\r
+
+      \  sdo_lrs.geom_segment_end_measure(geom) AS end_chainage\r
+
+      FROM (\r
+
+      \  SELECT\r
+
+      \    sdo_lrs.lrs_intersection(r.geom, c.geom, 0.5) AS geom\r
+
+      \  FROM\r
+
+      \    pipeline_routes r, pipeline_counties c\r
+
+      \  WHERE\r
+
+      \    r.pipeline_id = 1\r
+
+      \    AND c.county = 'Milam'\r
+
+      \    AND c.state_abrv = 'TX'\r
+
+      \  );\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Which county does each anomaly fall in? (joins the per-anomaly
+      clipped\r
+
+      -- geometry from Section 4 against the county polygons using
+      SDO_ANYINTERACT)\r
+
+      SELECT\r
+
+      \  an.anomaly_id,\r
+
+      \  an.severity,\r
+
+      \  c.county\r
+
+      FROM\r
+
+      \  pipeline_anomaly_segments_vw an,\r
+
+      \  pipeline_counties c\r
+
+      WHERE\r
+
+      \  sdo_anyinteract(an.geom, c.geom) = 'TRUE';\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 7. Compliance Reporting: Pipe Length by Severity and County\r
+
+      \r
+
+      Combines dynamic segmentation with `SDO_GEOM.SDO_LENGTH`, applied here to
+      regulatory repair-priority reporting.\r
+
+      \r
+
+      Note: for the two point anomalies (`from_measure = to_measure`),
+      `clip_geom_segment returns` a point rather than a line, so sdo_length for
+      those rows returns 0 — correct, since a point has no length. The
+      corrosion-patch anomalies are the ones that contribute measurable pipe
+      length to this report."
+    languageId: markdown
+  - kind: 2
+    value: "SELECT c.county, an.severity,\r
+
+      \  SUM(\r
+
+      \    sdo_geom.sdo_length(\r
+
+      \      sdo_lrs.lrs_intersection(\r
+
+      \        sdo_lrs.clip_geom_segment(r.geom, an.from_measure,
+      an.to_measure),\r
+
+      \        c.geom,\r
+
+      \        0.5),\r
+
+      \      0.05,\r
+
+      \      'unit=meter')\r
+
+      \  ) len_meters\r
+
+      FROM\r
+
+      \  pipeline_anomalies an,\r
+
+      \  pipeline_routes r,\r
+
+      \  pipeline_counties c\r
+
+      WHERE\r
+
+      \  an.pipeline_id = r.pipeline_id\r
+
+      \  AND sdo_anyinteract(\r
+
+      \    sdo_lrs.clip_geom_segment(r.geom, an.from_measure, an.to_measure),\r
+
+      \    c.geom) = 'TRUE'\r
+
+      GROUP BY\r
+
+      \  c.county,\r
+
+      \  an.severity\r
+
+      ORDER BY\r
+
+      \  c.county,\r
+
+      \  an.severity;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## 8. Cleanup: Dropping All Objects Created Above"
+    languageId: markdown
+  - kind: 2
+    value: "-- Views, since they depend on the base tables below.\r
+
+      DROP VIEW pipeline_anomaly_segments_vw;\r
+
+      DROP VIEW pipeline_asset_offset_pts_vw;\r
+
+      DROP VIEW pipeline_asset_centerline_pts_vw;\r
+
+      \r
+
+      -- Spatial metadata registered in Sections 1, 4, and 6. Must be removed\r
+
+      -- explicitly -- DROP TABLE/DROP VIEW leave USER_SDO_GEOM_METADATA rows in
+      place.\r
+
+      DELETE FROM user_sdo_geom_metadata\r
+
+      \  WHERE table_name = 'PIPELINE_ANOMALY_SEGMENTS_VW' AND column_name =
+      'GEOM';\r
+
+      DELETE FROM user_sdo_geom_metadata\r
+
+      \  WHERE table_name = 'PIPELINE_COUNTIES' AND column_name = 'GEOM';\r
+
+      DELETE FROM user_sdo_geom_metadata\r
+
+      \  WHERE table_name = 'PIPELINE_ROUTES' AND column_name = 'GEOM';\r
+
+      COMMIT;\r
+
+      \r
+
+      -- Indexes. DROP TABLE below would drop these automatically too; dropped\r
+
+      -- explicitly here for a complete, self-documenting teardown.\r
+
+      DROP INDEX pipeline_counties_sidx;\r
+
+      DROP INDEX pipeline_anomalies_idx;\r
+
+      DROP INDEX pipeline_routes_sidx;\r
+
+      \r
+
+      -- Base tables. PURGE bypasses the recycle bin for a full, immediate
+      removal.\r
+
+      DROP TABLE pipeline_anomalies PURGE;\r
+
+      DROP TABLE pipeline_assets PURGE;\r
+
+      DROP TABLE pipeline_counties PURGE;\r
+
+      DROP TABLE pipeline_routes PURGE;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "-- Verify the cleanup\r
+
+      SELECT table_name, column_name\r
+
+      FROM user_sdo_geom_metadata\r
+
+      WHERE table_name IN ('PIPELINE_ROUTES', 'PIPELINE_COUNTIES',
+      'PIPELINE_ANOMALY_SEGMENTS_VW');\r
+
+      \r
+
+      SELECT object_name, object_type\r
+
+      FROM user_objects\r
+
+      WHERE object_name LIKE 'PIPELINE_%';\r\n"
+    languageId: oracle-sql
