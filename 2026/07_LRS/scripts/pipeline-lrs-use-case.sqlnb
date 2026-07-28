@@ -448,10 +448,7 @@ cells:
       \  an.pipeline_id = r.pipeline_id;\r\n"
     languageId: oracle-sql
   - kind: 2
-    value: "-- Encapsulate the clip in a view, the same way the road-condition
-      example\r
-
-      -- exposes US_INTERSTATES_LRS_CONDITION for mapping tools.\r
+    value: "-- Encapsulate the previous clip in a view\r
 
       CREATE OR REPLACE VIEW pipeline_anomaly_segments_vw\r
 
@@ -477,11 +474,6 @@ cells:
       WHERE\r
 
       \  an.pipeline_id = r.pipeline_id;\r\n"
-    languageId: oracle-sql
-  - kind: 2
-    value: "-- Verify the view\r
-
-      SELECT * FROM pipeline_anomaly_segments_vw;\r\n"
     languageId: oracle-sql
   - kind: 2
     value: "-- The view needs its own USER_SDO_GEOM_METADATA row, copied from the

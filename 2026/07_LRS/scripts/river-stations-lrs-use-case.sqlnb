@@ -23,7 +23,9 @@ cells:
 
       WHERE\r
 
-      \  b.station_code='BZ1U';\r\n"
+      \  b.station_code='BZ1U'\r
+
+      \  OR b.station_code='BZ2L';\r\n"
     languageId: oracle-sql
   - kind: 2
     value: "SELECT\r
@@ -48,14 +50,16 @@ cells:
 
       WHERE\r
 
-      \  b.station_code='BZ1U';\r\n"
+      \  b.station_code='BZ1U'\r
+
+      \  OR b.station_code='BZ2L';\r\n"
     languageId: oracle-sql
   - kind: 2
     value: "CREATE OR REPLACE VIEW tx_brazos_river_lrs_vw\r
 
-      AS \r
+      AS\r
 
-      WITH \r
+      WITH\r
 
       \  start_m AS (\r
 
@@ -115,7 +119,7 @@ cells:
 
       \  SELECT\r
 
-      \    'DYNAMIC SEGMENT EXAMPLE' AS name, \r
+      \    'DYNAMIC SEGMENT EXAMPLE' AS name,\r
 
       \    sdo_lrs.convert_to_std_geom(\r
 
