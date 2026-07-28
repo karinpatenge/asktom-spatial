@@ -8,11 +8,11 @@ cells:
 
       CREATE TABLE pipeline_routes (\r
 
-      \  pipeline_id  NUMBER PRIMARY KEY,\r
+      \  pipeline_id    NUMBER PRIMARY KEY,\r
 
-      \  pipeline_name VARCHAR2(64),\r
+      \  pipeline_name  VARCHAR2(64),\r
 
-      \  geom         sdo_geometry\r
+      \  geom           SDO_GEOMETRY\r
 
       );\r\n"
     languageId: oracle-sql
@@ -111,7 +111,7 @@ cells:
 
       -- the measure dimension is correctly left out of the index.\r
 
-      CREATE INDEX pipeline_routes_sx ON pipeline_routes(geom) INDEXTYPE IS
+      CREATE INDEX pipeline_routes_sidx ON pipeline_routes(geom) INDEXTYPE IS
       mdsys.spatial_index_v2;\r\n"
     languageId: oracle-sql
   - kind: 2
@@ -281,6 +281,11 @@ cells:
       \  a.chainage;\r\n"
     languageId: oracle-sql
   - kind: 2
+    value: "-- Verify the view\r
+
+      SELECT * FROM pipeline_asset_centerline_pts_vw;\r\n"
+    languageId: oracle-sql
+  - kind: 2
     value: "-- Above-ground marker convention: valve signage is offset 15 m to the
       right\r
 
@@ -329,9 +334,7 @@ cells:
       \  a.pipeline_id = r.pipeline_id;\r\n"
     languageId: oracle-sql
   - kind: 2
-    value: "-- Verify the views\r
-
-      SELECT * FROM pipeline_asset_centerline_pts_vw;\r
+    value: "-- Verify the view\r
 
       SELECT * FROM pipeline_asset_offset_pts_vw;\r\n"
     languageId: oracle-sql
@@ -603,9 +606,9 @@ cells:
 
       \      -97.68, 30.05,\r
 
-      \      -97.68, 30.20, \r
+      \      -97.68, 30.20,\r
 
-      \      -97.80, 30.20, \r
+      \      -97.80, 30.20,\r
 
       \      -97.80, 30.05\r
 
@@ -635,7 +638,7 @@ cells:
 
       \    sdo_ordinate_array(\r
 
-      \      -97.68, 30.18, \r
+      \      -97.68, 30.18,\r
 
       \      -97.55, 30.18,\r
 
@@ -762,7 +765,7 @@ cells:
 
       \r
 
-      Note: for the two point anomalies (`from_measure = to_measure`),
+      Note: For the two point anomalies (`from_measure = to_measure`),
       `clip_geom_segment returns` a point rather than a line, so sdo_length for
       those rows returns 0 — correct, since a point has no length. The
       corrosion-patch anomalies are the ones that contribute measurable pipe
