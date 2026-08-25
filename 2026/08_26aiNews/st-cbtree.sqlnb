@@ -1,0 +1,1353 @@
+cells:
+  - kind: 1
+    value: >-
+      # Oracle AI Database Release Update 23.26.3 CBTREE Index Enhancement
+
+
+      **Composite B-Tree (CBTREE)** is an adaptation of B-Tree which is a
+      tree-structure index for rapid data retrieval. CBTREE adds optimizations
+      for indexing geospatial point data, and optionally, additional scalar
+      attributes such as a timestamp. This enables selected predicates to be
+      evaluated within the domain index operation in the SQL execution plan.
+
+      To create a spatial index with filtered columns, use the `FILTER BY`
+      clause to specify the scalar columns to be included.
+
+
+      * `CREATE INDEX ... INDEXTYPE IS MDSYS.SPATIAL_INDEX_V2 FILTER BY c1, c2,
+      ... PARAMETERS ('cbtree_index=true layer_gtype=point')` for combined
+      spatial and scalar predicates
+
+      * Observe that the DOMAIN_INDEX_FILTER hint is still needed when the query
+      window is from a join (to be fixed by optimizer team)
+
+      * Since it is a new feature, we recommend to specify the
+      `DOMAIN_INDEX_FILTER` hint when querying the data.
+    languageId: markdown
+  - kind: 1
+    value: "## Table of Contents\r
+
+      \r
+
+      1. Session Setup\r
+
+      2. The Sample Dataset\r
+
+      3. CBTREE Index\r
+
+      \   1. Separate Spatial and Temporal Indexes\r
+
+      \   2. Enhanced CBTREE Index - Spatiotemporal Index\r
+
+      \   3. Using Optimizer Hint DOMAIN_INDEX_FILTER\r
+
+      4. Using a Non-Temporal Column in the Enhanced CBTREE Index\r
+
+      5. Adding More Than One Column to the Enhanced CBTREE Index\r
+
+      6. Demo End"
+    languageId: markdown
+  - kind: 1
+    value: "## Setup"
+    languageId: markdown
+  - kind: 2
+    value: |
+      --
+      -- Disable ignoring of hints (needed in ADB)
+      --
+
+      ALTER SESSION SET OPTIMIZER_IGNORE_HINTS=FALSE;
+      ALTER SESSION SET OPTIMIZER_IGNORE_PARALLEL_HINTS=FALSE;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Disable parallel query since we only want to compare performance with
+      old and new index plans
+
+      --
+
+
+      ALTER SESSION DISABLE PARALLEL QUERY;
+    languageId: oracle-sql
+  - kind: 2
+    value: "SET TIMING ON\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Enable parallel DML and DDL\r
+
+      --\r
+
+      \r
+
+      ALTER SESSION ENABLE PARALLEL DDL;\r
+
+      ALTER SESSION ENABLE PARALLEL DML;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## The Sample Dataset"
+    languageId: markdown
+  - kind: 2
+    value: "DESCRIBE citibike_tripdata\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Show record count\r
+
+      --\r
+
+      \r
+
+      SELECT COUNT(*) FROM citibike_tripdata;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## CBTREE Index"
+    languageId: markdown
+  - kind: 1
+    value: "### Separate Indexes for Geometry and Temporal Column"
+    languageId: markdown
+  - kind: 2
+    value: >
+      --
+
+      -- Drop indexes to start fresh
+
+      --
+
+
+      DROP INDEX IF EXISTS citibike_tripdata_sidx;       -- Index on
+      SDO_GEOMETRY column
+
+      DROP INDEX IF EXISTS citibike_tripdata_tidx;       -- Index on TIMESTAMP
+      column
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Show how geometries are defined\r
+
+      --\r
+
+      \r
+
+      SELECT geom_start FROM citibike_tripdata FETCH FIRST 5 ROWS ONLY;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Create separate spatial and temporal indexes
+
+      --
+
+
+      -- 1. CBTREE spatial index on start location
+
+      CREATE INDEX citibike_tripdata_sidx ON citibike_tripdata (geom_start)
+        INDEXTYPE IS mdsys.spatial_index_v2
+        PARAMETERS('cbtree_index=true layer_gtype=point sdo_point_field_only=true')
+        PARALLEL 8;
+      -- SDO_POINT_FIELD_ONLY=TRUE recommended for optimal performance if all
+      point data is stored only in the SDO_POINT attribute of SDO_GEOMETRY
+
+
+      -- 2. Index on timestamp
+
+      CREATE INDEX citibike_tripdata_tidx ON citibike_tripdata (started_at)
+      PARALLEL 8;
+    languageId: oracle-sql
+  - kind: 2
+    value: |
+      --
+      -- Update table stats
+      --
+
+      BEGIN
+        DBMS_STATS.GATHER_TABLE_STATS(
+          'SANDBOX',
+          'CITIBIKE_TRIPDATA',
+          estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,
+          degree => DBMS_STATS.AUTO_DEGREE,
+          options => 'GATHER AUTO'
+        );
+      END;
+      /
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Explain plan for counting trips with constructor as window
+
+      --
+
+
+      EXPLAIN PLAN FOR
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(                 -- Within distance
+          geom_start,
+          SDO_GEOMETRY(                      -- Query window - a constructed line geometry
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'             -- 200 meters
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+      SELECT *
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+      COMMIT;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Count trips with constructor as window
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >+
+      --
+
+      -- Repeat: Count trips with constructor as window.
+
+      -- Elapsed time should be similar to the previous run.
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+    languageId: oracle-sql
+  - kind: 1
+    value: "### Enhanced CBTREE Index including Geometry and Temporal Column"
+    languageId: markdown
+  - kind: 2
+    value: |
+      --
+      -- Drop indexes to start fresh
+      --
+
+      DROP INDEX IF EXISTS citibike_tripdata_sidx;
+      DROP INDEX IF EXISTS citibike_tripdata_tidx;
+      DROP INDEX IF EXISTS citibike_tripdata_stidx;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Create a single spatiotemporal index using FILTER BY clause
+
+      --
+
+
+      CREATE INDEX citibike_tripdata_stidx ON
+      citibike_tripdata(geom_start)         -- Geometry column
+        INDEXTYPE IS mdsys.spatial_index_v2
+        FILTER BY started_at                                                        -- Timestamp column
+        PARAMETERS('cbtree_index=true layer_gtype=point sdo_point_field_only=true')
+        PARALLEL 8;
+    languageId: oracle-sql
+  - kind: 2
+    value: |
+      --
+      -- Update table stats
+      --
+
+      BEGIN
+        DBMS_STATS.GATHER_TABLE_STATS(
+          'SANDBOX',
+          'CITIBIKE_TRIPDATA',
+          estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,
+          degree => DBMS_STATS.AUTO_DEGREE,
+          options => 'GATHER AUTO'
+        );
+      END;
+      /
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Explain plan for counting trips with constructor as window and no
+      DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      EXPLAIN PLAN FOR
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+      SELECT *
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+      COMMIT;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Count trips with constructor as window and no DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+      AND started_at BETWEEN
+        TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+        AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Repeat: Count trips with constructor as window and no
+      DOMAIN_INDEX_FILTER hint
+
+      -- Elapsed time should be similar to the previous run due to
+      NO_RESULT_CACHE.
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ count(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 1
+    value: "**Using Optimizer Hint DOMAIN_INDEX_FILTER**\r
+
+      \r
+
+      The `/*+ DOMAIN_INDEX_FILTER(<table_name> <index_name>) */` hint is not
+      required if optimizer statistics are available. This feature improves
+      performance when spatial and scalar predicates are individually selective
+      and become highly selective when evaluated together.\r
+
+      \r
+
+      You will next see an example for it."
+    languageId: markdown
+  - kind: 2
+    value: >
+      --
+
+      -- Explain plan for counting trips with constructor as window and using
+      DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      EXPLAIN PLAN FOR
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+      SELECT *
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+      COMMIT;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Count trips with constructor as window and using DOMAIN_INDEX_FILTER
+      hint
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Repeat: Count trips with constructor as window and DOMAIN_INDEX_FILTER
+      hint
+
+      -- Elapsed time should be similar to the previous run due to
+      NO_RESULT_CACHE.
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata
+      WHERE
+        SDO_WITHIN_DISTANCE(
+          geom_start,
+          SDO_GEOMETRY(
+            2002,
+            4326,
+            NULL,
+            SDO_ELEM_INFO_ARRAY(1, 2, 1),
+            SDO_ORDINATE_ARRAY(
+              -73.9958982, 40.7265811, -73.9915495, 40.7317284, -73.990804, 40.7348668,
+              -73.9900999, 40.7351492, -73.9891473, 40.7365614, -73.9903484, 40.7370949,
+              -73.9888988, 40.7424296, -73.9885675, 40.7428062, -73.9891887, 40.7430886,
+              -73.9882361, 40.7484542, -73.9886917, 40.7486425, -73.9879462, 40.7494583,
+              -73.9873664, 40.7529723, -73.9864138, 40.7558273, -73.9869108, 40.7560783,
+              -73.9846743, 40.7592156, -73.9850884, 40.7594665, -73.9824378, 40.7642348,
+              -73.9816094, 40.7675912
+            )
+          ),
+          'distance=200, unit=M'
+        ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 1
+    value: Adding another spatial dataset
+    languageId: markdown
+  - kind: 2
+    value: "DESCRIBE osm_broadway\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Show record count for the next query\r
+
+      --\r
+
+      \r
+
+      SELECT\r
+
+      \  COUNT(*)\r
+
+      FROM\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Update table stats\r
+
+      --\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'CITIBIKE_TRIPDATA',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'OSM_BROADWAY',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Explain plan for counting trips with JOIN as window and no
+      DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      EXPLAIN PLAN FOR
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+      SELECT *
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+      COMMIT;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Count trips with JOIN as window and no DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Repeat: Count trips with join as window and no DOMAIN_INDEX_FILTER hint
+
+      -- Elapsed time should be similar to the previous run due to
+      NO_RESULT_CACHE.
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Explain plan with join as window and using DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      EXPLAIN PLAN FOR
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+
+      SELECT *
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);
+
+
+      COMMIT;
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Count trips with join as window and using DOMAIN_INDEX_FILTER hint
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 2
+    value: >
+      --
+
+      -- Repeat: Count trips with join as window and using DOMAIN_INDEX_FILTER
+      hint
+
+      -- Elapsed time should be similar to the previous run due to
+      NO_RESULT_CACHE.
+
+      --
+
+
+      SELECT
+        /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata citibike_tripdata_stidx) */ COUNT(*)
+      FROM
+        citibike_tripdata,
+        osm_broadway
+      WHERE
+        id = 'test1'
+        AND
+          SDO_WITHIN_DISTANCE(
+            geom_start,
+            geom,
+            'distance=200, unit=M'
+          ) = 'TRUE'
+        AND started_at BETWEEN
+          TO_TIMESTAMP('2023-06-01 07:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3')
+          AND TO_TIMESTAMP('2023-06-01 11:00:00.000','YYYY-MM-DD HH24:MI:SS.FF3');
+    languageId: oracle-sql
+  - kind: 1
+    value: "## Using a Non-Temporal Column in the Enhanced CBTREE Index"
+    languageId: markdown
+  - kind: 2
+    value: "--\r
+
+      -- Drop indexes to start fresh\r
+
+      --\r
+
+      \r
+
+      DROP INDEX IF EXISTS citibike_tripdata_sidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_tidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_stidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_snidx;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Create a single enhanced CBTREE index that combines a spatial column
+      with a non-spatial and non-temporal column\r
+
+      --\r
+
+      \r
+
+      CREATE INDEX citibike_tripdata_snidx ON citibike_tripdata
+      (geom_end)            -- Geometry column\r
+
+      \  INDEXTYPE IS mdsys.spatial_index_v2\r
+
+      \  FILTER BY
+      distance_in_km                                                      --
+      Number column\r
+
+      \  PARAMETERS('cbtree_index=true layer_gtype=point
+      sdo_point_field_only=true')\r
+
+      \  PARALLEL 8;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Update table stats\r
+
+      --\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'CITIBIKE_TRIPDATA',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'OSM_BROADWAY',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Explain plan for counting trips with JOIN as window and
+      DOMAIN_INDEX_FILTER hint\r
+
+      --\r
+
+      \r
+
+      EXPLAIN PLAN FOR\r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_end,\r
+
+      \      geom,\r
+
+      \      'distance=200, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 10 and 15;\r
+
+      \r
+
+      SELECT *\r
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);\r
+
+      \r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Count trips with join as window and DOMAIN_INDEX_FILTER hint\r
+
+      --\r
+
+      \r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_start,\r
+
+      \      geom,\r
+
+      \      'distance=200, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 10 and 15;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Repeat: Count trips with join as window and using DOMAIN_INDEX_FILTER
+      hint\r
+
+      --\r
+
+      \r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_start,\r
+
+      \      geom,\r
+
+      \      'distance=200, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 10 and 15;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "## Adding More Than One Column to the Enhanced CBTREE Index"
+    languageId: markdown
+  - kind: 2
+    value: "--\r
+
+      -- Drop all indexes to start fresh\r
+
+      --\r
+
+      \r
+
+      DROP INDEX IF EXISTS citibike_tripdata_sidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_tidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_stidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_snidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_snvvidx;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Create a single index that combines a spatial column with three
+      non-spatial columns\r
+
+      --\r
+
+      \r
+
+      CREATE INDEX citibike_tripdata_snvvidx ON citibike_tripdata
+      (geom_end)         -- Geometry column\r
+
+      \  INDEXTYPE IS mdsys.spatial_index_v2\r
+
+      \  FILTER BY distance_in_km, member_casual,
+      rideable_type                       -- 3 additional columns\r
+
+      \  PARAMETERS('cbtree_index=true layer_gtype=point
+      sdo_point_field_only=true')\r
+
+      \  PARALLEL 8;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Update table stats\r
+
+      --\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'CITIBIKE_TRIPDATA',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r
+
+      \r
+
+      BEGIN\r
+
+      \  DBMS_STATS.GATHER_TABLE_STATS(\r
+
+      \    'SANDBOX',\r
+
+      \    'OSM_BROADWAY',\r
+
+      \    estimate_percent => DBMS_STATS.AUTO_SAMPLE_SIZE,\r
+
+      \    degree => DBMS_STATS.AUTO_DEGREE,\r
+
+      \    options => 'GATHER AUTO'\r
+
+      \  );\r
+
+      END;\r
+
+      /\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Explain plan for counting trips with join as window and using
+      DOMAIN_INDEX_FILTER hint\r
+
+      --\r
+
+      \r
+
+      EXPLAIN PLAN FOR\r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snvvidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_end,\r
+
+      \      geom,\r
+
+      \      'distance=2000, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 10 and 15\r
+
+      \  AND member_casual = 'casual'\r
+
+      \  AND rideable_type = 'electric_bike';\r
+
+      \r
+
+      SELECT *\r
+
+      FROM TABLE(DBMS_XPLAN.DISPLAY);\r
+
+      \r
+
+      COMMIT;\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Count trips with join as window and using DOMAIN_INDEX_FILTER hint\r
+
+      --\r
+
+      \r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snvvidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_end,\r
+
+      \      geom,\r
+
+      \      'distance=2000, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 1 and 15\r
+
+      \  AND member_casual = 'casual'\r
+
+      \  AND rideable_type = 'electric_bike';\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Repeat: Count trips with join as window and DOMAIN_INDEX_FILTER hint\r
+
+      --\r
+
+      \r
+
+      SELECT\r
+
+      \  /*+ NO_RESULT_CACHE DOMAIN_INDEX_FILTER(citibike_tripdata
+      citibike_tripdata_snvvidx) */ COUNT(*)\r
+
+      FROM\r
+
+      \  citibike_tripdata,\r
+
+      \  osm_broadway\r
+
+      WHERE\r
+
+      \  id = 'test1'\r
+
+      \  AND\r
+
+      \    SDO_WITHIN_DISTANCE(\r
+
+      \      geom_start,\r
+
+      \      geom,\r
+
+      \      'distance=2000, unit=M'\r
+
+      \    ) = 'TRUE'\r
+
+      \  AND distance_in_km BETWEEN 10 and 15\r
+
+      \  AND rideable_type = 'electric_bike'\r
+
+      \  AND member_Casual = 'casual';\r\n"
+    languageId: oracle-sql
+  - kind: 2
+    value: "--\r
+
+      -- Clean up existing indexes\r
+
+      --\r
+
+      \r
+
+      DROP INDEX IF EXISTS citibike_tripdata_sidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_tidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_stidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_snidx;\r
+
+      DROP INDEX IF EXISTS citibike_tripdata_snvvidx;\r\n"
+    languageId: oracle-sql
+  - kind: 1
+    value: "# Demo End"
+    languageId: markdown
