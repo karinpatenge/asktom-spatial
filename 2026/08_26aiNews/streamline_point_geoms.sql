@@ -172,5 +172,10 @@ FROM
 --
 
 --
--- Note: Create or rebuild the spatial index once the point geometries were updated
+-- Notes:
+-- For a very large table:
+-- - Prefer the MERGE or an equivalent UPDATE over calling the PL/SQL function for each point geometry.
+-- - Run in batches by primary-key ranges if undo/redo capacity is limited.
+-- - If the geometry column has a spatial index, rebuild the index after the migration. It may be faster than maintaining it throughout the MERGE.
+-- - For a full-table migration with a controlled cutover window, creating a replacement table with the same SELECT source can be faster than in-place DML, but requires recreating constraints, grants, indexes, and metadata.
 --
